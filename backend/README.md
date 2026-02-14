@@ -49,11 +49,12 @@ Servidor en http://localhost:3001
 # Puerto del servidor
 PORT=3001
 
-# WebSocket de Ivy (agente BI)
+# Ivy/Clover Agent WebSocket URL
 CLOVER_URL=wss://clover.neosolutions.com.ar/
 
-# Token de autenticación para Ivy
-CLOVER_TOKEN=tu-token-aqui
+# Ivy/Clover Agent Gateway Token
+# Obtener con: docker exec [IVY_CONTAINER] cat /home/node/.openclaw/openclaw.json | grep token
+CLOVER_TOKEN=
 ```
 
 ---
@@ -73,6 +74,22 @@ Response:
   "timestamp": "2026-02-14T18:00:00.000Z"
 }
 ```
+
+### Config (para Frontend)
+
+```http
+GET /api/config
+```
+
+Response:
+```json
+{
+  "gatewayUrl": "wss://clover.neosolutions.com.ar/",
+  "gatewayToken": "b7de372ef0d3a2e..."
+}
+```
+
+El frontend usa estos valores para conectar a Ivy en modo Training.
 
 ### Query (Dashboard)
 
@@ -128,20 +145,30 @@ curl http://localhost:3001/health
 ## Arquitectura
 
 ```
-Frontend ──POST /api/query──► Backend ──WebSocket──► Ivy Agent
-                                │                      │
-                                │                      ▼
-                                │                   Base de
-                                ◄──HTML response────  Datos
+                    ┌─────────────────────────┐
+                    │        Frontend         │
+                    └───────────┬─────────────┘
+                                │
+            ┌───────────────────┼───────────────────┐
+            │                   │                   │
+            ▼                   ▼                   ▼
+    GET /api/config     POST /api/query      GET /health
+            │                   │
+            │                   ▼
+            │           ┌─────────────┐
+            │           │ CloverClient│
+            │           └──────┬──────┘
+            │                  │ WebSocket
+            ▼                  ▼
+    Frontend usa ──────► Ivy/Clover Agent
+    token para              │
+    Training                ▼
+                        Base de Datos
 ```
 
-El backend actúa como **proxy** entre el frontend y el agente Ivy:
-
-1. Recibe prompt del frontend
-2. Conecta a Ivy via WebSocket
-3. Envía prompt con prefijo `[DASHBOARD]`
-4. Extrae HTML de la respuesta
-5. Retorna HTML al frontend
+**Flujos:**
+- **Dashboard:** Frontend → POST /api/query → Backend → Ivy
+- **Training:** Frontend → GET /api/config → Frontend → Ivy (directo)
 
 ---
 
@@ -150,11 +177,11 @@ El backend actúa como **proxy** entre el frontend y el agente Ivy:
 ```
 backend/
 ├── src/
-│   ├── index.ts          # Entry point + rutas
+│   ├── index.ts              # Entry point + rutas
 │   └── services/
 │       └── clover-client.ts  # WebSocket a Ivy
-├── dist/                 # Código compilado
-├── Dockerfile            # Build de producción
+├── dist/                     # Código compilado
+├── Dockerfile                # Build de producción
 ├── package.json
 ├── tsconfig.json
 └── .env.example
@@ -164,7 +191,7 @@ backend/
 
 ## Deploy
 
-Ver [docs/06-deployment.md](../docs/06-deployment.md) para guía completa de producción.
+Ver [docs/06-deployment-backend.md](../docs/06-deployment-backend.md) para guía completa de producción.
 
 ---
 

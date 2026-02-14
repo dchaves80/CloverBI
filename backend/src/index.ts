@@ -9,6 +9,15 @@ await fastify.register(cors, {
   origin: true,
 })
 
+// ============== CONFIG ENDPOINT (for Frontend) ==============
+
+fastify.get('/api/config', async () => {
+  return {
+    gatewayUrl: process.env.CLOVER_URL || 'wss://clover.neosolutions.com.ar/',
+    gatewayToken: process.env.CLOVER_TOKEN || '',
+  }
+})
+
 // ============== QUERY ENDPOINT (connected to Ivy) ==============
 
 fastify.post<{
@@ -27,7 +36,6 @@ fastify.post<{
     if (response.html) {
       return { html: response.html, mode: 'ivy' }
     } else {
-      // Ivy responded but no HTML extracted
       return { 
         html: generateFallback(prompt, response.text, darkMode),
         text: response.text,
@@ -64,10 +72,10 @@ function generateFallback(prompt: string, agentText: string, darkMode: boolean):
       pre { background: ${t.bg}; padding: 12px; border-radius: 8px; overflow-x: auto; color: ${t.muted}; white-space: pre-wrap; }
     </style>
   </head><body>
-    <div class="card">
+    <div class=card>
       <h2>📊 ${prompt}</h2>
     </div>
-    <div class="card">
+    <div class=card>
       <h3>🌿 Respuesta de Ivy</h3>
       <pre>${agentText}</pre>
     </div>

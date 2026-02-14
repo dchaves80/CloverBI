@@ -10,7 +10,8 @@ flowchart TB
     end
     
     subgraph "Backend (Fastify :3001)"
-        API["REST API"]
+        CFG["GET /api/config"]
+        API["POST /api/query"]
         CC["CloverClient"]
     end
     
@@ -22,7 +23,8 @@ flowchart TB
     
     DB[("Base de Datos")]
     
-    FT -.->|"WebSocket directo"| IVY
+    FT -->|"1. GET /api/config"| CFG
+    FT -.->|"2. WebSocket (con token)"| IVY
     FD -->|"POST /api/query"| API
     API --> CC
     CC -->|"WebSocket"| IVY
@@ -38,29 +40,58 @@ flowchart TB
 | Capa | Tecnología | Puerto | Función |
 |------|------------|--------|---------|
 | Frontend | Next.js + React | 3000 | UI, Training, Dashboard viewer |
-| Backend | Fastify | 3001 | API REST, Proxy WebSocket |
+| Backend | Fastify | 3001 | API REST, Config, Proxy a Ivy |
 | Agent | OpenClaw (Ivy) | 19002 | NL→SQL, genera HTML |
 | DB | PostgreSQL/MSSQL/MySQL | - | Datos del cliente |
+
+---
+
+## Endpoints del Backend
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | /health | Health check |
+| GET | /api/config | Devuelve gatewayUrl y gatewayToken |
+| POST | /api/query | Envía prompt a Ivy, devuelve HTML |
+
+### GET /api/config
+
+Devuelve la configuración para conectar a Ivy (Training mode).
+
+**Response:**
+```json
+{
+  "gatewayUrl": "wss://clover.neosolutions.com.ar/",
+  "gatewayToken": "b7de372ef0d3a2e..."
+}
+```
+
+El frontend usa estos valores para establecer conexión WebSocket directa con Ivy.
 
 ---
 
 ## Secuencia 1: TRAINING
 
 **Ruta:** `/training`  
-**Conexión:** Frontend → Ivy (WebSocket directo)  
+**Flujo:** Frontend → Backend (config) → Frontend → Ivy (WebSocket)  
 **Prefijo:** `[TRAINING]`
 
 ```mermaid
 sequenceDiagram
     participant U as 👤 Usuario
     participant F as 🖥️ Frontend<br/>(/training)
+    participant B as ⚙️ Backend<br/>(:3001)
     participant I as 🌿 Ivy Agent
     participant S as 🔧 SQL Tool
     participant DB as 🗄️ Base de Datos
     participant W as 📁 Workspace
 
     U->>F: Abre /training
-    F->>I: WebSocket connect (wss://clover...)
+    F->>B: GET /api/config
+    B->>F: {gatewayUrl, gatewayToken}
+    F->>I: WebSocket connect (con token)
+    I->>F: hello-ok
+    F->>F: ✅ Conectado
     
     rect rgb(40, 40, 80)
         Note over F,I: Prefijo [TRAINING] en cada mensaje
@@ -114,7 +145,7 @@ workspace/
 ## Secuencia 2: DASHBOARD
 
 **Ruta:** `/`  
-**Conexión:** Frontend → Backend → Ivy  
+**Flujo:** Frontend → Backend → Ivy  
 **Prefijo:** `[DASHBOARD]`
 
 ```mermaid
@@ -207,11 +238,11 @@ sequenceDiagram
 |---------|------------|--------------|
 | Ruta | `/training` | `/` |
 | Prefijo | `[TRAINING]` | `[DASHBOARD]` |
-| Conexión | Frontend → Ivy | Frontend → Backend → Ivy |
+| Config | GET /api/config primero | No necesita |
+| Conexión a Ivy | Frontend → Ivy (WebSocket directo) | Backend → Ivy |
 | Respuesta | Texto explicativo | HTML completo |
 | Propósito | Aprender DB | Visualizar datos |
 | Guarda archivos | ✅ Sí | ❌ No |
-| SQL | Para analizar | Para datos reales |
 
 ---
 
@@ -246,9 +277,10 @@ sequenceDiagram
 | SQL Injection | Queries validadas por Ivy |
 | XSS | iframe sandbox aísla JS |
 | Datos sensibles | Credenciales en workspace aislado |
+| Token expuesto | Config solo via Backend, no hardcodeado |
 | Abuso | Rate limiting + auth |
 
 ---
 
-*Actualizado: 2026-02-14 (San Valentín) 💚*  
+*Actualizado: 2026-02-14*  
 *Clover BI - Digital Flow*
