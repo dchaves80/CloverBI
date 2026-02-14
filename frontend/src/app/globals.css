@@ -1,0 +1,54 @@
+@import "tailwindcss";
+
+/* Clover BI Theme - Dark Mode (default) */
+@theme {
+  /* Brand */
+  --color-clover: #10b981;
+  --color-clover-dark: #059669;
+  --color-clover-light: #34d399;
+}
+
+:root {
+  /* Dark mode (default) */
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-card: #334155;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --border: #475569;
+}
+
+:root.light {
+  /* Light mode */
+  --bg-primary: #f8fafc;
+  --bg-secondary: #ffffff;
+  --bg-card: #f1f5f9;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --border: #e2e8f0;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: system-ui, -apple-system, sans-serif;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+/* Utility classes using CSS variables */
+.bg-bg-primary { background-color: var(--bg-primary); }
+.bg-bg-secondary { background-color: var(--bg-secondary); }
+.bg-bg-card { background-color: var(--bg-card); }
+.text-text-primary { color: var(--text-primary); }
+.text-text-secondary { color: var(--text-secondary); }
+.text-text-muted { color: var(--text-muted); }
+.border-bg-card { border-color: var(--border); }
+.border-border { border-color: var(--border); }
+
+/* Focus states */
+.focus\:border-clover:focus { border-color: #10b981; }
+
+/* Placeholder */
+.placeholder\:text-text-muted::placeholder { color: var(--text-muted); }
