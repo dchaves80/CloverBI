@@ -17,7 +17,7 @@ export class CloverClient {
 
   constructor(config: CloverConfig) {
     this.config = {
-      timeout: 120000,
+      timeout: 600000, // 10 minutos para consultas complejas
       ...config
     }
   }
