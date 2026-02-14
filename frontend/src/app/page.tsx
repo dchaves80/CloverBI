@@ -10,7 +10,7 @@ interface QueryResult {
   timestamp: Date
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+// Backend via API Route interna (no expuesto a internet)
 
 export default function Home() {
   const [query, setQuery] = useState('')
@@ -38,7 +38,7 @@ export default function Home() {
     setQuery('')
 
     try {
-      const res = await fetch(`${API_URL}/api/query`, {
+      const res = await fetch('/api/query', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: currentQuery, darkMode }),
