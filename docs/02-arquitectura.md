@@ -7,9 +7,10 @@ flowchart TB
     subgraph "Frontend (Next.js :3000)"
         FT["🎓 Training Page<br/>/training"]
         FD["📊 Dashboard Page<br/>/"]
+        AR["🔌 API Route<br/>/api/query"]
     end
     
-    subgraph "Backend (Fastify :3001)"
+    subgraph "Backend (Fastify :3002)"
         CFG["GET /api/config"]
         API["POST /api/query"]
         CC["CloverClient"]
@@ -25,7 +26,8 @@ flowchart TB
     
     FT -->|"1. GET /api/config"| CFG
     FT -.->|"2. WebSocket (con token)"| IVY
-    FD -->|"POST /api/query"| API
+    FD -->|"POST /api/query"| AR
+    AR -->|"Proxy interno"| API
     API --> CC
     CC -->|"WebSocket"| IVY
     IVY --> SQL
@@ -40,9 +42,73 @@ flowchart TB
 | Capa | Tecnología | Puerto | Función |
 |------|------------|--------|---------|
 | Frontend | Next.js + React | 3000 | UI, Training, Dashboard viewer |
-| Backend | Fastify | 3001 | API REST, Config, Proxy a Ivy |
+| API Route | Next.js | - | Proxy interno a Backend |
+| Backend | Fastify | 3002 | API REST, Config, Proxy a Ivy |
 | Agent | OpenClaw (Ivy) | 19002 | NL→SQL, genera HTML |
 | DB | PostgreSQL/MSSQL/MySQL | - | Datos del cliente |
+
+---
+
+## Arquitectura de Red (Producción)
+
+```mermaid
+flowchart LR
+    subgraph "Internet"
+        U["👤 Usuario"]
+    end
+    
+    subgraph "Servidor"
+        NG["Nginx<br/>:443"]
+        
+        subgraph "cloverbi-net"
+            FE["Frontend<br/>:3000"]
+            BE["Backend<br/>:3002"]
+        end
+        
+        IVY["Ivy<br/>:19002"]
+    end
+    
+    U -->|HTTPS| NG
+    NG -->|Proxy| FE
+    FE -->|"API Route<br/>(interno)"| BE
+    BE -->|WebSocket| IVY
+```
+
+**Importante:** El backend NO está expuesto públicamente. Solo el frontend recibe tráfico externo.
+
+---
+
+## API Route (Frontend)
+
+El frontend incluye un API Route que actúa como proxy interno al backend:
+
+**Archivo:** `/src/app/api/query/route.ts`
+
+```typescript
+// POST /api/query
+export async function POST(request: Request) {
+  const body = await request.json()
+  const backendUrl = process.env.BACKEND_URL || 'http://localhost:3002'
+  
+  const response = await fetch(`${backendUrl}/api/query`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  
+  const data = await response.json()
+  return Response.json(data)
+}
+```
+
+### ¿Por qué API Route?
+
+| Sin API Route ❌ | Con API Route ✅ |
+|------------------|------------------|
+| Backend expuesto en Nginx | Backend solo interno |
+| URL hardcodeada en cliente | Proxy transparente |
+| CORS necesario | Sin CORS (mismo origen) |
+| Más superficie de ataque | Mínima exposición |
 
 ---
 
@@ -80,7 +146,7 @@ El frontend usa estos valores para establecer conexión WebSocket directa con Iv
 sequenceDiagram
     participant U as 👤 Usuario
     participant F as 🖥️ Frontend<br/>(/training)
-    participant B as ⚙️ Backend<br/>(:3001)
+    participant B as ⚙️ Backend<br/>(:3002)
     participant I as 🌿 Ivy Agent
     participant S as 🔧 SQL Tool
     participant DB as 🗄️ Base de Datos
@@ -145,14 +211,15 @@ workspace/
 ## Secuencia 2: DASHBOARD
 
 **Ruta:** `/`  
-**Flujo:** Frontend → Backend → Ivy  
+**Flujo:** Frontend → API Route → Backend → Ivy  
 **Prefijo:** `[DASHBOARD]`
 
 ```mermaid
 sequenceDiagram
     participant U as 👤 Usuario
     participant F as 🖥️ Frontend<br/>(/)
-    participant B as ⚙️ Backend<br/>(:3001)
+    participant AR as 🔌 API Route<br/>(/api/query)
+    participant B as ⚙️ Backend<br/>(:3002)
     participant CC as 🔌 CloverClient
     participant I as 🌿 Ivy Agent
     participant S as 🔧 SQL Tool
@@ -161,7 +228,8 @@ sequenceDiagram
     U->>F: "Ventas por sucursal"
     U->>F: Click Consultar
     
-    F->>B: POST /api/query<br/>{prompt, darkMode: true}
+    F->>AR: POST /api/query<br/>{prompt, darkMode: true}
+    AR->>B: POST /api/query<br/>(proxy interno)
     
     B->>CC: query(prompt, {darkMode})
     CC->>I: WebSocket connect
@@ -186,7 +254,8 @@ sequenceDiagram
     CC->>CC: extractHtml()
     CC->>B: {html: "...", mode: "ivy"}
     
-    B->>F: {html}
+    B->>AR: {html}
+    AR->>F: {html}
     
     F->>F: <iframe srcdoc={html} />
     U->>U: Ve dashboard interactivo
@@ -239,10 +308,26 @@ sequenceDiagram
 | Ruta | `/training` | `/` |
 | Prefijo | `[TRAINING]` | `[DASHBOARD]` |
 | Config | GET /api/config primero | No necesita |
-| Conexión a Ivy | Frontend → Ivy (WebSocket directo) | Backend → Ivy |
+| Conexión a Ivy | Frontend → Ivy (WebSocket directo) | API Route → Backend → Ivy |
 | Respuesta | Texto explicativo | HTML completo |
 | Propósito | Aprender DB | Visualizar datos |
 | Guarda archivos | ✅ Sí | ❌ No |
+
+---
+
+## Variables de Entorno
+
+### Frontend
+| Variable | Descripción | Default |
+|----------|-------------|---------|
+| `BACKEND_URL` | URL del backend (interno) | `http://localhost:3002` |
+
+### Backend
+| Variable | Descripción | Default |
+|----------|-------------|---------|
+| `PORT` | Puerto del servidor | `3002` |
+| `GATEWAY_URL` | URL WebSocket de Ivy | - |
+| `GATEWAY_TOKEN` | Token de autenticación | - |
 
 ---
 
@@ -278,6 +363,7 @@ sequenceDiagram
 | XSS | iframe sandbox aísla JS |
 | Datos sensibles | Credenciales en workspace aislado |
 | Token expuesto | Config solo via Backend, no hardcodeado |
+| Backend expuesto | Solo accesible internamente via API Route |
 | Abuso | Rate limiting + auth |
 
 ---

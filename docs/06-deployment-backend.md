@@ -8,12 +8,20 @@
 
 ```mermaid
 flowchart LR
-    FE["Frontend :3000"] -->|POST /api/query| BE["Backend :3001"]
-    BE -->|WebSocket| IVY["Ivy/Clover Agent"]
+    subgraph cloverbi-net
+        FE["Frontend :3000"]
+        BE["Backend :3002"]
+    end
+    
+    BE -->|WebSocket| IVY["Ivy :19002"]
     IVY -->|SQL| DB[("Base de Datos")]
+    
+    FE -->|"API Route (interno)"| BE
 ```
 
-El Backend es un **proxy** entre el Frontend y el Ivy/Clover Agent.
+El Backend es un **proxy interno** entre el Frontend y el Ivy/Clover Agent.
+
+**⚠️ El backend NO se expone a internet.** Solo es accesible desde el frontend via red Docker.
 
 ---
 
@@ -27,9 +35,15 @@ El Backend es un **proxy** entre el Frontend y el Ivy/Clover Agent.
 
 ---
 
-## Prerequisito: Ivy/Clover Agent
+## Prerequisitos
 
-El Ivy/Clover Agent debe estar corriendo.
+### 1. Red Docker
+
+```bash
+docker network create cloverbi-net
+```
+
+### 2. Ivy/Clover Agent corriendo
 
 ```bash
 # Verificar
@@ -70,13 +84,16 @@ docker build -t cloverbi/backend:latest .
 ```bash
 docker run -d \
   --name cloverbi-backend \
+  --network cloverbi-net \
   --restart unless-stopped \
-  -p 127.0.0.1:3001:3001 \
-  -e PORT=3001 \
+  -p 127.0.0.1:3002:3002 \
+  -e PORT=3002 \
   -e CLOVER_URL=wss://[DOMINIO_IVY]/ \
   -e CLOVER_TOKEN=[CLOVER_TOKEN] \
   cloverbi/backend:latest
 ```
+
+**Nota:** Puerto 3002 (3001 está ocupado por otros servicios).
 
 ---
 
@@ -84,7 +101,7 @@ docker run -d \
 
 | Variable | Requerida | Descripción | Default |
 |----------|-----------|-------------|---------|
-| `PORT` | No | Puerto del servidor | `3001` |
+| `PORT` | No | Puerto del servidor | `3002` |
 | `CLOVER_URL` | **Sí** | WebSocket URL del Ivy/Clover Agent | - |
 | `CLOVER_TOKEN` | **Sí** | Gateway Token del agente | - |
 
@@ -97,24 +114,32 @@ docker run -d \
 docker logs -f cloverbi-backend
 
 # Health check
-curl http://localhost:3001/health
+curl http://localhost:3002/health
 
 # Test query
-curl -X POST http://localhost:3001/api/query \
+curl -X POST http://localhost:3002/api/query \
   -H "Content-Type: application/json" \
   -d '{"prompt": "Hola", "darkMode": true}'
+
+# Verificar red
+docker network inspect cloverbi-net
 ```
 
 ---
 
-## Ejemplo (Digital Flow)
+## Ejemplo Completo (Digital Flow)
 
 ```bash
+# 1. Crear red (si no existe)
+docker network create cloverbi-net
+
+# 2. Deploy backend
 docker run -d \
   --name cloverbi-backend \
+  --network cloverbi-net \
   --restart unless-stopped \
-  -p 127.0.0.1:3001:3001 \
-  -e PORT=3001 \
+  -p 127.0.0.1:3002:3002 \
+  -e PORT=3002 \
   -e CLOVER_URL=wss://clover.neosolutions.com.ar/ \
   -e CLOVER_TOKEN=b7de372ef0d3a2edd5b5411ad5e4561c516090456ec50950 \
   cloverbi/backend:latest
@@ -153,7 +178,9 @@ docker build -t cloverbi/backend:latest .
 | No conecta a Ivy | URL incorrecta | Verificar CLOVER_URL (incluir `wss://` y `/`) |
 | Timeout en queries | Ivy ocupada o caída | Verificar logs de Ivy |
 | Connection refused | Container no corre | `docker ps` y restart |
+| Frontend no conecta | Red incorrecta | Verificar ambos en `cloverbi-net` |
 
 ---
 
+*Actualizado: 2026-02-14*  
 *CloverBI - Digital Flow*
