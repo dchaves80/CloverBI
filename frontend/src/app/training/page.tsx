@@ -10,8 +10,10 @@ interface Message {
   timestamp: Date
 }
 
-const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || 'wss://clover.neosolutions.com.ar/'
-const GATEWAY_TOKEN = process.env.NEXT_PUBLIC_GATEWAY_TOKEN || 'b7de372ef0d3a2edd5b5411ad5e4561c516090456ec50950'
+interface GatewayConfig {
+  gatewayUrl: string
+  gatewayToken: string
+}
 
 export default function TrainingPage() {
   const [messages, setMessages] = useState<Message[]>([])
@@ -19,6 +21,7 @@ export default function TrainingPage() {
   const [connected, setConnected] = useState(false)
   const [connecting, setConnecting] = useState(true)
   const [darkMode, setDarkMode] = useState(true)
+  const [config, setConfig] = useState<GatewayConfig | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const reqIdRef = useRef(1)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -35,16 +38,37 @@ export default function TrainingPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  // Fetch config from backend on mount
   useEffect(() => {
-    connectWebSocket()
+    fetchConfig()
+  }, [])
+
+  // Connect to WebSocket when config is available
+  useEffect(() => {
+    if (config) {
+      connectWebSocket(config)
+    }
     return () => {
       wsRef.current?.close()
     }
-  }, [])
+  }, [config])
 
-  const connectWebSocket = () => {
+  const fetchConfig = async () => {
+    try {
+      const res = await fetch('/api/config')
+      if (!res.ok) throw new Error('Failed to fetch config')
+      const data = await res.json()
+      setConfig(data)
+    } catch (error) {
+      console.error('Error fetching config:', error)
+      addMessage('system', '❌ Error obteniendo configuración del servidor')
+      setConnecting(false)
+    }
+  }
+
+  const connectWebSocket = (cfg: GatewayConfig) => {
     setConnecting(true)
-    const ws = new WebSocket(GATEWAY_URL)
+    const ws = new WebSocket(cfg.gatewayUrl)
     wsRef.current = ws
 
     ws.onmessage = (event) => {
@@ -61,7 +85,7 @@ export default function TrainingPage() {
             role: 'operator',
             scopes: ['operator.read', 'operator.write', 'operator.admin'],
             caps: [], commands: [], permissions: {},
-            auth: { token: GATEWAY_TOKEN },
+            auth: { token: cfg.gatewayToken },
             locale: 'es-AR',
             userAgent: 'clover-bi-training/1.0'
           }
@@ -93,7 +117,9 @@ export default function TrainingPage() {
     ws.onclose = () => {
       setConnected(false)
       setConnecting(false)
-      setTimeout(connectWebSocket, 3000)
+      if (config) {
+        setTimeout(() => connectWebSocket(config), 3000)
+      }
     }
 
     ws.onerror = () => {
