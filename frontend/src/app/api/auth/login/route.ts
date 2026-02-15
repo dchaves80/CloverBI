@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const DOM_API_URL = 'https://multit-back.digitalflow.ar'
+const DOM_API_URL = process.env.DOM_API_URL || 'https://multit-back.digitalflow.ar'
 
 export async function POST(request: NextRequest) {
   try {
