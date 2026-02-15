@@ -219,3 +219,22 @@ timeline
 | **v4** | **SQL tools integrados** |
 
 
+
+
+### UX & Features
+- [ ] **Historial de queries** - Que el usuario vea sus consultas anteriores y pueda re-ejecutarlas.
+- [ ] **Favoritos/Templates** - Guardar dashboards favoritos para reusar con un click.
+- [ ] **Links compartibles** - Generar URL pública para compartir un dashboard sin login.
+
+
+### Real-time
+- [ ] **WebSocket para dashboards** - Conexión persistente en vez de HTTP largo. Mejor UX, progress en tiempo real.
+
+
+### Wow Factor
+- [ ] **Consultas por voz** - Hablar la consulta en vez de escribir (Web Speech API).
+- [ ] **PWA** - Instalar como app en el celular/desktop.
+
+
+### Persistencia Usuario
+- [ ] **Preferencias guardadas** - Modo oscuro/claro, idioma, conexión default.
