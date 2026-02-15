@@ -208,3 +208,13 @@ timeline
 | v3 | Smart entrypoint + ANTHROPIC_API_KEY |
 | **v4** | **SQL tools integrados** |
 
+
+### Autenticación & Multi-tenancy
+- [ ] **Integración con DOM (DataOilManager)** - Login usando Dataflow API que ya está en producción.
+  - ATR (Automatic Token Rotation) para seguridad
+  - Multi-tenant con Organizations
+  - Organization Configs para credenciales de DB por cliente
+  - Flujo: Login → Token ATR + org_uid → Ivy lee configs → Conecta a DB del cliente
+  - Backend ya existe: `D:\AldylServices\DataOilManager-Backend`
+  - **No reinventamos auth** - usamos infra probada ✅
+
