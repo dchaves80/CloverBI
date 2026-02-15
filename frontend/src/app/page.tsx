@@ -10,12 +10,16 @@ interface QueryResult {
   timestamp: Date
 }
 
+type LoadingPhase = 'connecting' | 'querying' | 'generating' | null
+
 // Backend via API Route interna (no expuesto a internet)
 
 export default function Home() {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<QueryResult[]>([])
   const [loading, setLoading] = useState(false)
+  const [loadingPhase, setLoadingPhase] = useState<LoadingPhase>(null)
+  const [currentQuery, setCurrentQuery] = useState('')
   const [activeTab, setActiveTab] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [darkMode, setDarkMode] = useState(true)
@@ -28,20 +32,44 @@ export default function Home() {
     }
   }, [darkMode])
 
+  // Simular fases de progreso
+  useEffect(() => {
+    if (!loading) {
+      setLoadingPhase(null)
+      return
+    }
+    
+    setLoadingPhase('connecting')
+    
+    const timer1 = setTimeout(() => {
+      if (loading) setLoadingPhase('querying')
+    }, 2000)
+    
+    const timer2 = setTimeout(() => {
+      if (loading) setLoadingPhase('generating')
+    }, 5000)
+    
+    return () => {
+      clearTimeout(timer1)
+      clearTimeout(timer2)
+    }
+  }, [loading])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!query.trim()) return
 
     setLoading(true)
     setError(null)
-    const currentQuery = query
+    const queryText = query
+    setCurrentQuery(queryText)
     setQuery('')
 
     try {
       const res = await fetch('/api/query', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: currentQuery, darkMode }),
+        body: JSON.stringify({ prompt: queryText, darkMode }),
       })
 
       if (!res.ok) throw new Error('Error en la consulta')
@@ -50,7 +78,7 @@ export default function Home() {
 
       const newResult: QueryResult = {
         id: Date.now().toString(),
-        query: currentQuery,
+        query: queryText,
         timestamp: new Date(),
         html: data.html,
       }
@@ -62,10 +90,24 @@ export default function Home() {
       console.error(err)
     } finally {
       setLoading(false)
+      setCurrentQuery('')
     }
   }
 
   const activeResult = results.find(r => r.id === activeTab)
+
+  const getLoadingMessage = () => {
+    switch (loadingPhase) {
+      case 'connecting':
+        return { emoji: '🔌', text: 'Conectando con Ivy...' }
+      case 'querying':
+        return { emoji: '🔍', text: 'Consultando la base de datos...' }
+      case 'generating':
+        return { emoji: '📊', text: 'Generando dashboard...' }
+      default:
+        return { emoji: '🍀', text: 'Iniciando...' }
+    }
+  }
 
   return (
     <div className="h-screen flex flex-col bg-bg-primary transition-colors duration-300">
@@ -133,7 +175,22 @@ export default function Home() {
 
       {/* Main Result Area */}
       <main className="flex-1 overflow-hidden transition-colors duration-300">
-        {activeResult ? (
+        {loading ? (
+          <div className="h-full flex flex-col items-center justify-center text-center px-6">
+            <div className="text-6xl mb-6 animate-bounce">{getLoadingMessage().emoji}</div>
+            <h2 className="text-2xl font-bold text-text-primary mb-3">
+              {getLoadingMessage().text}
+            </h2>
+            <div className="bg-bg-secondary border border-bg-card rounded-xl px-6 py-4 max-w-lg mb-6">
+              <p className="text-text-muted text-sm mb-1">Tu consulta:</p>
+              <p className="text-text-primary text-lg">{currentQuery}</p>
+            </div>
+            <div className="flex gap-2 items-center text-text-muted text-sm">
+              <div className="w-2 h-2 bg-clover rounded-full animate-pulse"></div>
+              <span>Esto puede tomar unos minutos para consultas complejas</span>
+            </div>
+          </div>
+        ) : activeResult ? (
           <iframe
             srcDoc={activeResult.html}
             className="w-full h-full border-0"
@@ -198,7 +255,7 @@ export default function Home() {
               {loading ? (
                 <>
                   <span className="animate-spin">🍀</span>
-                  Pensando...
+                  Procesando...
                 </>
               ) : (
                 <>
