@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 interface Message {
@@ -22,6 +23,10 @@ export default function TrainingPage() {
   const [connecting, setConnecting] = useState(true)
   const [darkMode, setDarkMode] = useState(true)
   const [config, setConfig] = useState<GatewayConfig | null>(null)
+  const [user, setUser] = useState<any>(null)
+  const [roles, setRoles] = useState<any[]>([])
+  const [authChecked, setAuthChecked] = useState(false)
+  const router = useRouter()
   const wsRef = useRef<WebSocket | null>(null)
   const reqIdRef = useRef(1)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -38,10 +43,36 @@ export default function TrainingPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  // Verificar auth
+  useEffect(() => {
+    const storedUser = localStorage.getItem('cloverbi_user')
+    const storedRoles = localStorage.getItem('cloverbi_roles')
+    
+    if (!storedUser) {
+      router.push('/login')
+      return
+    }
+    
+    setUser(JSON.parse(storedUser))
+    const parsedRoles = storedRoles ? JSON.parse(storedRoles) : []
+    setRoles(parsedRoles)
+    
+    // Verificar rol data_trainer
+    const hasTrainer = parsedRoles.some((r: any) => r.name === 'data_trainer')
+    if (!hasTrainer) {
+      router.push('/') // No tiene permiso, va al dashboard
+      return
+    }
+    
+    setAuthChecked(true)
+  }, [router])
+
   // Fetch config from backend on mount
   useEffect(() => {
-    fetchConfig()
-  }, [])
+    if (authChecked) {
+      fetchConfig()
+    }
+  }, [authChecked])
 
   // Connect to WebSocket when config is available
   useEffect(() => {
@@ -161,6 +192,12 @@ export default function TrainingPage() {
     sendMessage(input)
   }
 
+  const handleLogout = () => {
+    localStorage.removeItem('cloverbi_user')
+    localStorage.removeItem('cloverbi_roles')
+    router.push('/login')
+  }
+
   const quickActions = [
     { label: '🔍 Explorar DB', prompt: 'Explora la base de datos demo_bi y dime qué tablas hay' },
     { label: '📋 Ver ventas', prompt: 'Describe la tabla ventas con sus columnas' },
@@ -168,6 +205,15 @@ export default function TrainingPage() {
     { label: '💰 Ventas del mes', prompt: '¿Cuántas ventas hubo este mes?' },
     { label: '📈 Dashboard KPIs', prompt: 'Genera un dashboard con KPIs de ventas' },
   ]
+
+  // Loading mientras verifica auth
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen bg-[#0a0f0a] flex items-center justify-center">
+        <div className="text-emerald-400 font-mono">Verificando acceso...</div>
+      </div>
+    )
+  }
 
   return (
     <div className="h-screen flex flex-col bg-bg-primary transition-colors duration-300">
@@ -201,6 +247,13 @@ export default function TrainingPage() {
             >
               ← Dashboard
             </Link>
+            <button 
+              onClick={handleLogout} 
+              className="w-8 h-8 rounded-full bg-clover hover:bg-red-500 flex items-center justify-center text-white text-sm font-bold transition-colors" 
+              title="Cerrar sesión"
+            >
+              {(user?.name?.[0] || user?.email?.[0] || 'U').toUpperCase()}
+            </button>
           </nav>
         </div>
       </header>

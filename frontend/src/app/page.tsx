@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 interface QueryResult {
@@ -23,6 +24,41 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [darkMode, setDarkMode] = useState(true)
+  const [user, setUser] = useState<any>(null)
+  const [roles, setRoles] = useState<any[]>([])
+  const [authChecked, setAuthChecked] = useState(false)
+  const router = useRouter()
+
+  // Verificar autenticación
+  useEffect(() => {
+    const storedUser = localStorage.getItem('cloverbi_user')
+    const storedRoles = localStorage.getItem('cloverbi_roles')
+    
+    if (!storedUser) {
+      router.push('/login')
+      return
+    }
+    
+    setUser(JSON.parse(storedUser))
+    const parsedRoles = storedRoles ? JSON.parse(storedRoles) : []
+    setRoles(parsedRoles)
+    
+    // Verificar rol data_analyst para acceder al dashboard
+    const hasAnalyst = parsedRoles.some((r: any) => r.name === 'data_analyst')
+    if (!hasAnalyst) {
+      // Si no es analyst pero es trainer, va a training
+      const hasTrainer = parsedRoles.some((r: any) => r.name === 'data_trainer')
+      if (hasTrainer) {
+        router.push('/training')
+      } else {
+        // No tiene ningún rol válido
+        router.push('/login')
+      }
+      return
+    }
+    
+    setAuthChecked(true)
+  }, [router])
 
   useEffect(() => {
     if (darkMode) {
@@ -109,6 +145,25 @@ export default function Home() {
     }
   }
 
+  // Helper para verificar roles
+  const hasRole = (roleName: string) => roles.some(r => r.name === roleName)
+
+  // Logout function
+  const handleLogout = () => {
+    localStorage.removeItem('cloverbi_user')
+    localStorage.removeItem('cloverbi_roles')
+    router.push('/login')
+  }
+
+  // Mostrar loading mientras verifica auth
+  if (!authChecked || !user) {
+    return (
+      <div className="min-h-screen bg-[#0a0f0a] flex items-center justify-center">
+        <div className="text-emerald-400 font-mono">Loading...</div>
+      </div>
+    )
+  }
+
   return (
     <div className="h-screen flex flex-col bg-bg-primary transition-colors duration-300">
       {/* Header */}
@@ -126,15 +181,17 @@ export default function Home() {
             >
               {darkMode ? '🌙' : '☀️'}
             </button>
-            <Link 
-              href="/training"
-              className="text-text-secondary hover:text-text-primary transition text-sm px-3 py-2 bg-bg-card hover:bg-border rounded-lg"
-            >
-              🌿 Training
-            </Link>
-            <div className="w-8 h-8 rounded-full bg-clover flex items-center justify-center text-white text-sm font-bold">
-              D
-            </div>
+            {hasRole('data_trainer') && (
+              <Link 
+                href="/training"
+                className="text-text-secondary hover:text-text-primary transition text-sm px-3 py-2 bg-bg-card hover:bg-border rounded-lg"
+              >
+                🌿 Training
+              </Link>
+            )}
+            <button onClick={handleLogout} className="w-8 h-8 rounded-full bg-clover hover:bg-red-500 flex items-center justify-center text-white text-sm font-bold transition-colors" title="Cerrar sesión">
+              {(user.name?.[0] || user.email?.[0] || 'U').toUpperCase()}
+            </button>
           </nav>
         </div>
       </header>
