@@ -458,4 +458,125 @@ export async function templatesRoutes(fastify: FastifyInstance) {
       return reply.status(500).send({ error: 'Error ejecutando template', details: error.message })
     }
   })
+
+  // ============== CREATE FROM HTML (con parser CLOVER) ==============
+  fastify.post<{
+    Body: {
+      name: string
+      html: string
+      description?: string
+      base_prompt?: string
+      org_id: string
+      user_id: string
+      is_public?: boolean
+      tags?: string[]
+    }
+  }>('/api/templates/from-html', {
+    schema: {
+      description: 'Crear template parseando metadata CLOVER del HTML',
+      tags: ['templates'],
+      body: {
+        type: 'object',
+        required: ['name', 'html', 'org_id', 'user_id'],
+        properties: {
+          name: { type: 'string', description: 'Nombre del template' },
+          html: { type: 'string', description: 'HTML con metadata CLOVER' },
+          description: { type: 'string' },
+          base_prompt: { type: 'string', description: 'Prompt original' },
+          org_id: { type: 'string' },
+          user_id: { type: 'string' },
+          is_public: { type: 'boolean', default: false },
+          tags: { type: 'array', items: { type: 'string' } },
+        },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            id: { type: 'string' },
+            message: { type: 'string' },
+            extracted: {
+              type: 'object',
+              properties: {
+                componentCount: { type: 'number' },
+                queryIds: { type: 'array', items: { type: 'string' } },
+              },
+            },
+          },
+        },
+      },
+    },
+  }, async (request, reply) => {
+    const { name, html, description, base_prompt, org_id, user_id, is_public, tags } = request.body
+
+    // Importar parser
+    const { parseCloverMetadata, hasCloverMetadata } = await import('../utils/clover-parser.js')
+
+    // Validar que tenga metadata CLOVER
+    if (!hasCloverMetadata(html)) {
+      return reply.status(400).send({ 
+        error: 'El HTML no contiene metadata CLOVER',
+        hint: 'Asegurate de que Ivy genere con <!--CLOVER:BEGIN--> comments'
+      })
+    }
+
+    try {
+      // Parsear metadata
+      const parsed = parseCloverMetadata(html)
+      
+      if (parsed.componentCount === 0) {
+        return reply.status(400).send({ 
+          error: 'No se encontraron componentes CLOVER válidos',
+          hint: 'Formato esperado: <!--CLOVER:BEGIN type="..." id="..."--><!--CLOVER:SQL ...-->'
+        })
+      }
+
+      // Crear template
+      const id = randomUUID()
+      const queriesJson = JSON.stringify(parsed.queries)
+      const bindingSchema = JSON.stringify({
+        version: '2.0',
+        components: parsed.components.map(c => ({ id: c.id, type: c.type }))
+      })
+      const tagsStr = tags ? tags.join(',') : null
+
+      await execute(`
+        INSERT INTO templates (
+          id, org_id, user_id, name, description, base_prompt,
+          template_html, binding_schema, queries,
+          thumbnail, is_public, tags, created_at, updated_at
+        ) VALUES (
+          @id, @org_id, @user_id, @name, @description, @base_prompt,
+          @template_html, @binding_schema, @queries,
+          NULL, @is_public, @tags, GETDATE(), GETDATE()
+        )
+      `, {
+        id,
+        org_id,
+        user_id,
+        name,
+        description: description || null,
+        base_prompt: base_prompt || null,
+        template_html: html,
+        binding_schema: bindingSchema,
+        queries: queriesJson,
+        is_public: is_public ? 1 : 0,
+        tags: tagsStr
+      })
+
+      return {
+        success: true,
+        id,
+        message: 'Template creado desde HTML',
+        extracted: {
+          componentCount: parsed.componentCount,
+          queryIds: Object.keys(parsed.queries)
+        }
+      }
+    } catch (error: any) {
+      fastify.log.error(error)
+      return reply.status(500).send({ error: 'Error creando template', details: error.message })
+    }
+  })
 }
