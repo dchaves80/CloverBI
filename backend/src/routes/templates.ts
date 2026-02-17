@@ -13,8 +13,8 @@ const templateSchema = {
     description: { type: 'string', nullable: true },
     base_prompt: { type: 'string', nullable: true },
     template_html: { type: 'string', nullable: true },
-    binding_schema: { type: 'object', nullable: true },
-    required_query: { type: 'string', nullable: true },
+    binding_schema: { type: 'object', additionalProperties: true, nullable: true },
+    queries: { type: 'object', additionalProperties: true, nullable: true },
     thumbnail: { type: 'string', nullable: true },
     is_public: { type: 'boolean' },
     tags: { type: 'array', items: { type: 'string' } },
@@ -34,7 +34,7 @@ const createTemplateSchema = {
     base_prompt: { type: 'string', description: 'Prompt original que generó el dashboard' },
     template_html: { type: 'string', description: 'HTML con {{placeholders}}' },
     binding_schema: { type: 'object', description: 'Schema de binding para rehidratar' },
-    required_query: { type: 'string', description: 'Query SQL base con parámetros' },
+    queries: { type: 'object', additionalProperties: true, description: 'Queries SQL nombradas {alias: sql}' },
     thumbnail: { type: 'string', description: 'Preview en base64' },
     is_public: { type: 'boolean', default: false, description: 'Compartir con la organización' },
     tags: { type: 'array', items: { type: 'string' }, description: 'Tags para búsqueda' },
@@ -50,7 +50,7 @@ interface Template {
   base_prompt?: string
   template_html?: string
   binding_schema?: string
-  required_query?: string
+  queries?: Record<string, string>
   thumbnail?: string
   is_public: boolean
   tags?: string
@@ -66,7 +66,7 @@ interface CreateTemplateBody {
   base_prompt?: string
   template_html?: string
   binding_schema?: object
-  required_query?: string
+  queries?: Record<string, string>
   thumbnail?: string
   is_public?: boolean
   tags?: string[]
@@ -77,7 +77,7 @@ interface UpdateTemplateBody {
   description?: string
   template_html?: string
   binding_schema?: object
-  required_query?: string
+  queries?: Record<string, string>
   thumbnail?: string
   is_public?: boolean
   tags?: string[]
@@ -134,6 +134,7 @@ export async function templatesRoutes(fastify: FastifyInstance) {
       const parsed = templates.map(t => ({
         ...t,
         binding_schema: t.binding_schema ? JSON.parse(t.binding_schema) : null,
+        queries: t.queries ? JSON.parse(t.queries as unknown as string) : null,
         tags: t.tags ? t.tags.split(',') : [],
       }))
 
@@ -182,6 +183,7 @@ export async function templatesRoutes(fastify: FastifyInstance) {
       return {
         ...t,
         binding_schema: t.binding_schema ? JSON.parse(t.binding_schema) : null,
+        queries: t.queries ? JSON.parse(t.queries as unknown as string) : null,
         tags: t.tags ? t.tags.split(',') : [],
       }
     } catch (error: any) {
@@ -212,7 +214,7 @@ export async function templatesRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const { 
       org_id, user_id, name, description, base_prompt, 
-      template_html, binding_schema, required_query, 
+      template_html, binding_schema, queries, 
       thumbnail, is_public, tags 
     } = request.body
 
@@ -223,21 +225,22 @@ export async function templatesRoutes(fastify: FastifyInstance) {
     try {
       const id = randomUUID()
       const bindingJson = binding_schema ? JSON.stringify(binding_schema) : null
+      const queriesJson = queries ? JSON.stringify(queries) : null
       const tagsStr = tags ? tags.join(',') : null
 
       await execute(`
         INSERT INTO templates (
           id, org_id, user_id, name, description, base_prompt,
-          template_html, binding_schema, required_query, 
+          template_html, binding_schema, queries, 
           thumbnail, is_public, tags, created_at, updated_at
         ) VALUES (
           @id, @org_id, @user_id, @name, @description, @base_prompt,
-          @template_html, @binding_schema, @required_query,
+          @template_html, @binding_schema, @queries,
           @thumbnail, @is_public, @tags, GETDATE(), GETDATE()
         )
       `, {
         id, org_id, user_id, name, description, base_prompt,
-        template_html, binding_schema: bindingJson, required_query,
+        template_html, binding_schema: bindingJson, queries: queriesJson,
         thumbnail, is_public: is_public ? 1 : 0, tags: tagsStr
       })
 
@@ -269,7 +272,7 @@ export async function templatesRoutes(fastify: FastifyInstance) {
           description: { type: 'string' },
           template_html: { type: 'string' },
           binding_schema: { type: 'object' },
-          required_query: { type: 'string' },
+          queries: { type: 'object', additionalProperties: true },
           thumbnail: { type: 'string' },
           is_public: { type: 'boolean' },
           tags: { type: 'array', items: { type: 'string' } },
@@ -313,9 +316,9 @@ export async function templatesRoutes(fastify: FastifyInstance) {
         setClauses.push('binding_schema = @binding_schema')
         params.binding_schema = JSON.stringify(updates.binding_schema)
       }
-      if (updates.required_query !== undefined) {
-        setClauses.push('required_query = @required_query')
-        params.required_query = updates.required_query
+      if (updates.queries !== undefined) {
+        setClauses.push('queries = @queries')
+        params.queries = JSON.stringify(updates.queries)
       }
       if (updates.thumbnail !== undefined) {
         setClauses.push('thumbnail = @thumbnail')

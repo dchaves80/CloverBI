@@ -155,12 +155,20 @@ fastify.get('/health/db', {
           connected: { type: 'boolean' },
         },
       },
+      500: {
+        type: 'object',
+        properties: {
+          status: { type: 'string' },
+          database: { type: 'string' },
+          error: { type: 'string' },
+        },
+      },
     },
   },
 }, async (request, reply) => {
   try {
     const pool = await getPool()
-    const result = await pool.request().query('SELECT 1 as ok')
+    await pool.request().query('SELECT 1 as ok')
     return { status: 'ok', database: 'CloverBI', connected: true }
   } catch (error: any) {
     return reply.status(500).send({ status: 'error', database: 'CloverBI', error: error.message })
@@ -195,6 +203,17 @@ function generateFallback(prompt: string, agentText: string, darkMode: boolean):
 const start = async () => {
   try {
     const port = parseInt(process.env.PORT || '3001')
+    const startTime = new Date()
+    const startTimestamp = startTime.toLocaleString('es-AR', {
+      timeZone: 'America/Argentina/Buenos_Aires',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    })
     
     // Test DB connection on startup
     try {
@@ -206,10 +225,16 @@ const start = async () => {
     }
     
     await fastify.listen({ port, host: '0.0.0.0' })
-    console.log(`🍀 Clover BI Backend on http://localhost:${port}`)
+    console.log(``)
+    console.log(`🍀 ═══════════════════════════════════════════════`)
+    console.log(`🍀 Clover BI Backend`)
+    console.log(`🍀 Started: ${startTimestamp}`)
+    console.log(`🍀 ═══════════════════════════════════════════════`)
+    console.log(`📡 Server:     http://localhost:${port}`)
     console.log(`📚 Swagger UI: http://localhost:${port}/docs`)
-    console.log(`🌿 Ivy: ${process.env.CLOVER_URL || 'wss://clover.neosolutions.com.ar/'}`)
-    console.log(`📋 Templates API: /api/templates`)
+    console.log(`🌿 Ivy:        ${process.env.CLOVER_URL || 'wss://clover.neosolutions.com.ar/'}`)
+    console.log(`📋 Templates:  /api/templates`)
+    console.log(``)
   } catch (err) {
     fastify.log.error(err)
     process.exit(1)
