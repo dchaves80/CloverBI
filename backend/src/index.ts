@@ -2,12 +2,18 @@ import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import 'dotenv/config'
 import { ivy } from './services/clover-client.js'
+import { templatesRoutes } from './routes/templates.js'
+import { getPool } from './services/db.js'
 
 const fastify = Fastify({ logger: true })
 
 await fastify.register(cors, {
   origin: true,
 })
+
+// ============== REGISTER ROUTES ==============
+
+await templatesRoutes(fastify)
 
 // ============== CONFIG ENDPOINT (for Frontend) ==============
 
@@ -57,6 +63,18 @@ fastify.get('/health', async () => {
   return { status: 'ok', timestamp: new Date().toISOString() }
 })
 
+// ============== DB HEALTH ==============
+
+fastify.get('/health/db', async (request, reply) => {
+  try {
+    const pool = await getPool()
+    const result = await pool.request().query('SELECT 1 as ok')
+    return { status: 'ok', database: 'CloverBI', connected: true }
+  } catch (error: any) {
+    return reply.status(500).send({ status: 'error', database: 'CloverBI', error: error.message })
+  }
+})
+
 // ============== FALLBACK (when Ivy responds without HTML) ==============
 
 function generateFallback(prompt: string, agentText: string, darkMode: boolean): string {
@@ -87,9 +105,20 @@ function generateFallback(prompt: string, agentText: string, darkMode: boolean):
 const start = async () => {
   try {
     const port = parseInt(process.env.PORT || '3001')
+    
+    // Test DB connection on startup
+    try {
+      await getPool()
+      console.log('🗄️ Database connection OK')
+    } catch (dbError: any) {
+      console.warn('⚠️ Database connection failed:', dbError.message)
+      console.warn('Templates API will not work until DB is available')
+    }
+    
     await fastify.listen({ port, host: '0.0.0.0' })
     console.log(`🍀 Clover BI Backend on http://localhost:${port}`)
     console.log(`🌿 Ivy: ${process.env.CLOVER_URL || 'wss://clover.neosolutions.com.ar/'}`)
+    console.log(`📋 Templates API: /api/templates`)
   } catch (err) {
     fastify.log.error(err)
     process.exit(1)
