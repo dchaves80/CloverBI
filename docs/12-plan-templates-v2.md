@@ -49,6 +49,92 @@ Sistema: Ejecuta query → Ivy rehidrata → Dashboard actualizado
 
 ---
 
+
+## 📊 Diagrama de Secuencia: Guardado de Template
+
+```mermaid
+sequenceDiagram
+    participant U as Usuario
+    participant FE as Frontend
+    participant BE as Backend
+    participant Ivy as Ivy Agent
+    participant DB as CloverBI DB
+
+    Note over U,DB: Fase 1: Usuario genera dashboard normal
+    U->>FE: "Mostrame ventas de enero"
+    FE->>BE: POST /api/chat {prompt}
+    BE->>Ivy: Generar dashboard
+    Ivy->>BE: HTML con data real
+    BE->>FE: Dashboard renderizado
+    FE->>U: Muestra dashboard ✨
+
+    Note over U,DB: Fase 2: Usuario quiere guardar como template
+    U->>FE: Click "Crear Template"
+    FE->>FE: Muestra modal (nombre, desc, tags)
+    U->>FE: Completa form + "Guardar"
+    
+    FE->>BE: POST /api/templates/create
+    Note right of BE: {name, description,<br/>original_prompt, tags}
+    
+    BE->>Ivy: "Convertí este dashboard a template"
+    Note right of Ivy: Regenera con {{placeholders}}<br/>+ binding_schema<br/>+ required_query
+    Ivy->>BE: Template + Schema + Query
+    
+    BE->>DB: INSERT INTO templates
+    Note right of DB: Guarda en CloverBI<br/>154.12.252.27:2433
+    DB->>BE: OK (template_id)
+    
+    BE->>FE: {success: true, template_id}
+    FE->>U: "Template guardado!" ✅
+```
+
+## 📊 Diagrama de Secuencia: Ejecución de Template
+
+```mermaid
+sequenceDiagram
+    participant U as Usuario
+    participant FE as Frontend
+    participant BE as Backend
+    participant Ivy as Ivy Agent
+    participant DB as CloverBI DB
+    participant ClientDB as DB del Cliente
+
+    Note over U,ClientDB: Usuario selecciona template existente
+    U->>FE: Abre galería de templates
+    FE->>BE: GET /api/templates
+    BE->>DB: SELECT * FROM templates
+    DB->>BE: Lista de templates
+    BE->>FE: Templates con thumbnails
+    FE->>U: Muestra galería 📋
+
+    U->>FE: Selecciona "Ventas Mensuales"
+    FE->>BE: GET /api/templates/:id
+    BE->>DB: SELECT template + schema
+    DB->>BE: Template data
+    BE->>FE: Template + parámetros requeridos
+    
+    Note over U,FE: Si hay parámetros, muestra form
+    FE->>U: Form: "Período", "Sucursal"
+    U->>FE: Completa parámetros
+    U->>FE: Click "Generar Dashboard"
+
+    FE->>BE: POST /api/templates/:id/execute
+    Note right of BE: {params: {periodo, sucursal}}
+    
+    BE->>BE: Construye query con params
+    BE->>ClientDB: Ejecuta SQL
+    ClientDB->>BE: Resultados frescos
+    
+    BE->>Ivy: Rehidratar template
+    Note right of Ivy: Template HTML<br/>+ binding_schema<br/>+ data fresca
+    Ivy->>BE: HTML final renderizado
+    
+    BE->>FE: Dashboard actualizado
+    FE->>U: Muestra dashboard con data nueva ✨
+```
+
+---
+
 ## 🧠 Por Qué Funciona Mejor
 
 | Aspecto | Post-facto (v1) | Ivy-Native (v2) |
