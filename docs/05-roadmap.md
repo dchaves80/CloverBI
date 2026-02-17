@@ -169,36 +169,61 @@ timeline
 
 ## 📋 Backlog
 
-### Cache & Performance
-- [ ] **Guardar HTML generado** - Cache de dashboards para queries repetidas. Ahorra tokens y mejora tiempo de respuesta.
-
-
-### Automatización
-- [ ] **Scheduler de reportes** - Programar dashboards automáticos (diario/semanal/mensual) con envío por email.
-
-
-### UX
-- [ ] **Modo edición post-generación** - Ajustar dashboards después de creados: cambiar tipo de gráfico, colores, quitar/agregar secciones sin regenerar todo.
-
-
-### Exportación
-- [ ] **Exportar a PDF** - Dashboard completo (gráficos + KPIs + informe) como documento PDF.
-- [ ] **Exportar tablas a Excel** - Solo las tablas de datos en formato .xlsx para análisis externo.
-
-
-### Mobile
-- [ ] **Mobile responsive** - Dashboards adaptables a pantallas de celular/tablet. Gráficos que se redimensionan, KPIs en stack vertical.
-
-
-### Autenticación & Multi-tenancy
-- [ ] **Integración con DOM (DataOilManager)** - Login usando Dataflow API que ya está en producción.
-  - ATR (Automatic Token Rotation) para seguridad **(No prioritario)**
-  - Multi-tenant con Organizations
-  - Organization Configs para credenciales de DB por cliente
-  - Flujo: Login → Token ATR + org_uid → Ivy lee configs → Conecta a DB del cliente
-  - Backend ya existe: `D:\AldylServices\DataOilManager-Backend`
-  - **No reinventamos auth** - usamos infra probada ✅
+### ✅ Completado
+- [x] **Landing page** - askcloverbi.com (2026-02-16)
+- [x] **Integración con DOM (DataOilManager)** - Login, logout, roles, deploy producción
   - 📄 Ver: [Plan de Integración](10-plan-integracion-dom.md)
+
+### 🔄 Pendientes
+
+#### Autenticación & Multi-tenancy
+- [ ] **ATR (Automatic Token Rotation)** - Seguridad mejorada (no prioritario)
+- [ ] **Organization Configs para DB** - Multi-tenant dinámico, cada cliente su DB
+
+#### Real-time & Performance
+- [ ] **WebSocket para dashboards** - Conexión persistente, progress en tiempo real
+- [ ] **Guardar HTML generado** - Cache de dashboards para queries repetidas
+
+#### UX & Features
+- [ ] **Progress indicators** - Mostrar progreso durante queries largas
+- [ ] **Modo edición post-generación** - Ajustar dashboards sin regenerar todo
+- [ ] **Historial de queries** - Ver consultas anteriores y re-ejecutarlas
+- [ ] **Favoritos/Templates** - Guardar dashboards favoritos
+- [ ] **Links compartibles** - URL pública para compartir sin login
+- [ ] **Preferencias guardadas** - Modo oscuro/claro, idioma, conexión default
+
+#### Exportación
+- [ ] **Exportar a PDF** - Dashboard completo como documento
+- [ ] **Exportar tablas a Excel** - Datos en formato .xlsx
+
+#### Automatización
+- [ ] **Scheduler de reportes** - Dashboards automáticos con envío por email
+
+#### Mobile & PWA
+- [ ] **Mobile responsive** - Dashboards adaptables a celular/tablet
+- [ ] **PWA** - Instalar como app en celular/desktop
+
+#### Marketing
+
+#### Wow Factor
+- [ ] **Consultas por voz** - Web Speech API
+
+#### 🚀 Sprint Febrero 2026 (Meet 16/02)
+
+##### 🔴 URGENT
+- [ ] **Implementar templates y guardado de consultas** (UI + backend) @David
+  - 📄 Ver: [Plan v2 - Ivy-Native](12-plan-templates-v2.md) ← NUEVO
+  - 📄 Ver: [Plan de Implementación](11-plan-templates.md)
+
+##### 🟠 HIGH
+- [ ] **Normalizar Data** - Evitar inconsistencias en dashboards @David
+- [ ] **Configurar envío de reportes por e-mail** (MVP) y cuenta de correo @David
+- [ ] **Evaluar opciones de hosting/servidores con GPU** y soporte @David
+
+##### 📋 Generales
+- [ ] Cambiar de dominio a cloverbi
+- [ ] Monitoreo de costos
+- [ ] Chatbot para página para atender leads
 
 ---
 
@@ -214,27 +239,3 @@ timeline
 | Versión | Cambios |
 |---------|---------|
 | v1 | Base inicial OpenClaw |
-| v2 | Mejoras de entrypoint |
-| v3 | Smart entrypoint + ANTHROPIC_API_KEY |
-| **v4** | **SQL tools integrados** |
-
-
-
-
-### UX & Features
-- [ ] **Historial de queries** - Que el usuario vea sus consultas anteriores y pueda re-ejecutarlas.
-- [ ] **Favoritos/Templates** - Guardar dashboards favoritos para reusar con un click.
-- [ ] **Links compartibles** - Generar URL pública para compartir un dashboard sin login.
-
-
-### Real-time
-- [ ] **WebSocket para dashboards** - Conexión persistente en vez de HTTP largo. Mejor UX, progress en tiempo real.
-
-
-### Wow Factor
-- [ ] **Consultas por voz** - Hablar la consulta en vez de escribir (Web Speech API).
-- [ ] **PWA** - Instalar como app en el celular/desktop.
-
-
-### Persistencia Usuario
-- [ ] **Preferencias guardadas** - Modo oscuro/claro, idioma, conexión default.
