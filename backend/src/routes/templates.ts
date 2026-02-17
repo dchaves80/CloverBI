@@ -2,6 +2,45 @@ import { FastifyInstance } from 'fastify'
 import { query, execute, sql } from '../services/db.js'
 import { randomUUID } from 'crypto'
 
+// ============== SCHEMAS ==============
+const templateSchema = {
+  type: 'object',
+  properties: {
+    id: { type: 'string', format: 'uuid' },
+    org_id: { type: 'string' },
+    user_id: { type: 'string' },
+    name: { type: 'string' },
+    description: { type: 'string', nullable: true },
+    base_prompt: { type: 'string', nullable: true },
+    template_html: { type: 'string', nullable: true },
+    binding_schema: { type: 'object', nullable: true },
+    required_query: { type: 'string', nullable: true },
+    thumbnail: { type: 'string', nullable: true },
+    is_public: { type: 'boolean' },
+    tags: { type: 'array', items: { type: 'string' } },
+    created_at: { type: 'string', format: 'date-time' },
+    updated_at: { type: 'string', format: 'date-time' },
+  },
+}
+
+const createTemplateSchema = {
+  type: 'object',
+  required: ['org_id', 'user_id', 'name'],
+  properties: {
+    org_id: { type: 'string', description: 'ID de la organización (de localStorage cloverbi_user)' },
+    user_id: { type: 'string', description: 'ID del usuario (de localStorage cloverbi_user)' },
+    name: { type: 'string', description: 'Nombre del template' },
+    description: { type: 'string', description: 'Descripción opcional' },
+    base_prompt: { type: 'string', description: 'Prompt original que generó el dashboard' },
+    template_html: { type: 'string', description: 'HTML con {{placeholders}}' },
+    binding_schema: { type: 'object', description: 'Schema de binding para rehidratar' },
+    required_query: { type: 'string', description: 'Query SQL base con parámetros' },
+    thumbnail: { type: 'string', description: 'Preview en base64' },
+    is_public: { type: 'boolean', default: false, description: 'Compartir con la organización' },
+    tags: { type: 'array', items: { type: 'string' }, description: 'Tags para búsqueda' },
+  },
+}
+
 interface Template {
   id: string
   org_id: string
@@ -47,10 +86,31 @@ interface UpdateTemplateBody {
 export async function templatesRoutes(fastify: FastifyInstance) {
   
   // ============== LIST TEMPLATES ==============
-  // GET /api/templates?org_id=xxx&user_id=xxx
   fastify.get<{
     Querystring: { org_id: string; user_id?: string; include_public?: string }
-  }>('/api/templates', async (request, reply) => {
+  }>('/api/templates', {
+    schema: {
+      description: 'Listar templates de la organización',
+      tags: ['templates'],
+      querystring: {
+        type: 'object',
+        required: ['org_id'],
+        properties: {
+          org_id: { type: 'string', description: 'ID de la organización' },
+          user_id: { type: 'string', description: 'ID del usuario (opcional)' },
+          include_public: { type: 'string', enum: ['true', 'false'], description: 'Incluir templates públicos' },
+        },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            templates: { type: 'array', items: templateSchema },
+          },
+        },
+      },
+    },
+  }, async (request, reply) => {
     const { org_id, user_id, include_public } = request.query
 
     if (!org_id) {
@@ -71,7 +131,6 @@ export async function templatesRoutes(fastify: FastifyInstance) {
 
       const templates = await query<Template>(sqlQuery, { org_id, user_id })
       
-      // Parse binding_schema JSON
       const parsed = templates.map(t => ({
         ...t,
         binding_schema: t.binding_schema ? JSON.parse(t.binding_schema) : null,
@@ -86,10 +145,27 @@ export async function templatesRoutes(fastify: FastifyInstance) {
   })
 
   // ============== GET SINGLE TEMPLATE ==============
-  // GET /api/templates/:id
   fastify.get<{
     Params: { id: string }
-  }>('/api/templates/:id', async (request, reply) => {
+  }>('/api/templates/:id', {
+    schema: {
+      description: 'Obtener un template por ID',
+      tags: ['templates'],
+      params: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+        },
+      },
+      response: {
+        200: templateSchema,
+        404: {
+          type: 'object',
+          properties: { error: { type: 'string' } },
+        },
+      },
+    },
+  }, async (request, reply) => {
     const { id } = request.params
 
     try {
@@ -115,10 +191,25 @@ export async function templatesRoutes(fastify: FastifyInstance) {
   })
 
   // ============== CREATE TEMPLATE ==============
-  // POST /api/templates
   fastify.post<{
     Body: CreateTemplateBody
-  }>('/api/templates', async (request, reply) => {
+  }>('/api/templates', {
+    schema: {
+      description: 'Crear un nuevo template',
+      tags: ['templates'],
+      body: createTemplateSchema,
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            id: { type: 'string', format: 'uuid' },
+            message: { type: 'string' },
+          },
+        },
+      },
+    },
+  }, async (request, reply) => {
     const { 
       org_id, user_id, name, description, base_prompt, 
       template_html, binding_schema, required_query, 
@@ -158,11 +249,43 @@ export async function templatesRoutes(fastify: FastifyInstance) {
   })
 
   // ============== UPDATE TEMPLATE ==============
-  // PUT /api/templates/:id
   fastify.put<{
     Params: { id: string }
     Body: UpdateTemplateBody
-  }>('/api/templates/:id', async (request, reply) => {
+  }>('/api/templates/:id', {
+    schema: {
+      description: 'Actualizar un template existente',
+      tags: ['templates'],
+      params: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+        },
+      },
+      body: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          description: { type: 'string' },
+          template_html: { type: 'string' },
+          binding_schema: { type: 'object' },
+          required_query: { type: 'string' },
+          thumbnail: { type: 'string' },
+          is_public: { type: 'boolean' },
+          tags: { type: 'array', items: { type: 'string' } },
+        },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            message: { type: 'string' },
+          },
+        },
+      },
+    },
+  }, async (request, reply) => {
     const { id } = request.params
     const updates = request.body
 
@@ -171,7 +294,6 @@ export async function templatesRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      // Build dynamic update query
       const setClauses: string[] = ['updated_at = GETDATE()']
       const params: Record<string, any> = { id }
 
@@ -225,10 +347,29 @@ export async function templatesRoutes(fastify: FastifyInstance) {
   })
 
   // ============== DELETE TEMPLATE ==============
-  // DELETE /api/templates/:id
   fastify.delete<{
     Params: { id: string }
-  }>('/api/templates/:id', async (request, reply) => {
+  }>('/api/templates/:id', {
+    schema: {
+      description: 'Eliminar un template',
+      tags: ['templates'],
+      params: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+        },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            message: { type: 'string' },
+          },
+        },
+      },
+    },
+  }, async (request, reply) => {
     const { id } = request.params
 
     try {
@@ -249,12 +390,42 @@ export async function templatesRoutes(fastify: FastifyInstance) {
   })
 
   // ============== EXECUTE TEMPLATE ==============
-  // POST /api/templates/:id/execute
-  // Este endpoint se implementará cuando integremos con Ivy
   fastify.post<{
     Params: { id: string }
     Body: { parameters?: Record<string, any> }
-  }>('/api/templates/:id/execute', async (request, reply) => {
+  }>('/api/templates/:id/execute', {
+    schema: {
+      description: 'Ejecutar un template con parámetros (rehidratar con data fresca)',
+      tags: ['templates'],
+      params: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+        },
+      },
+      body: {
+        type: 'object',
+        properties: {
+          parameters: { 
+            type: 'object', 
+            description: 'Parámetros para el template (ej: {date_range: {...}, sucursal: "all"})' 
+          },
+        },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            template_id: { type: 'string' },
+            parameters: { type: 'object' },
+            html: { type: 'string' },
+            message: { type: 'string' },
+          },
+        },
+      },
+    },
+  }, async (request, reply) => {
     const { id } = request.params
     const { parameters } = request.body
 
@@ -271,13 +442,12 @@ export async function templatesRoutes(fastify: FastifyInstance) {
       const template = templates[0]
       
       // TODO: Integrar con Ivy para rehidratar el template
-      // Por ahora retornamos el template con los parámetros
       return {
         success: true,
         template_id: id,
         parameters,
         message: 'Ejecución de template - TODO: integrar con Ivy',
-        template_html: template.template_html,
+        html: template.template_html,
         binding_schema: template.binding_schema ? JSON.parse(template.binding_schema) : null,
       }
     } catch (error: any) {
