@@ -62,7 +62,7 @@ fastify.get('/api/config', {
   },
 }, async () => {
   return {
-    gatewayUrl: process.env.CLOVER_URL || 'wss://clover.neosolutions.com.ar/',
+    gatewayUrl: process.env.PUBLIC_CLOVER_URL || 'wss://clover.neosolutions.com.ar/ws',
     gatewayToken: process.env.CLOVER_TOKEN || '',
   }
 })
