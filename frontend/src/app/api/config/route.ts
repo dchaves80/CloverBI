@@ -54,21 +54,27 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Buscar config de cloverbi (puede filtrar por environment si se necesita)
+    // Buscar config activa para el environment
     const environment = searchParams.get('environment') || 'production'
-    const cloverbiConfig = data.data.configs.find(
-      (c: any) => c.config_key === 'cloverbi' && c.environment === environment
+    
+    // Buscar por environment y is_active
+    const activeConfigs = data.data.configs.filter(
+      (c: any) => c.environment === environment && c.is_active
     )
 
-    if (!cloverbiConfig) {
+    if (activeConfigs.length === 0) {
       return NextResponse.json(
-        { error: `Configuración cloverbi (${environment}) no encontrada` },
+        { error: `No hay configuración activa para environment: ${environment}` },
         { status: 404 }
       )
     }
 
+    // Preferir config_key "cloverbi" si existe, sino tomar la primera
+    const config = activeConfigs.find((c: any) => c.config_key === 'cloverbi') 
+      || activeConfigs[0]
+
     // Retornar config_data directamente
-    return NextResponse.json(cloverbiConfig.config_data)
+    return NextResponse.json(config.config_data)
 
   } catch (error) {
     console.error('Error obteniendo config desde DOM:', error)
