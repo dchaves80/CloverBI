@@ -71,20 +71,15 @@ export default function ExplorarPage() {
     setQuery('')
 
     try {
-      // 🔥 Obtener backend URL desde config del DOM (localStorage)
-      const config = getConfig()
-      const backendUrl = config.backend.url
-      
-      logger.group('📊 Explorar: Enviando query DIRECTA al backend', () => {
-        logger.api('POST', `${backendUrl}/api/query`, { 
+      logger.group('📊 Explorar: Enviando query', () => {
+        logger.api('POST', '/api/query', { 
           prompt: queryText.substring(0, 50) + '...',
-          backendUrl
         })
       })
       
-      // 🔥 Llamar DIRECTAMENTE al backend remoto desde el navegador
-      // NO pasar por API route - usar URL del localStorage
-      const res = await fetch(`${backendUrl}/api/query`, {
+      // 🔥 Usar API route como proxy al backend
+      // La API route maneja la conexión interna al backend
+      const res = await fetch('/api/query', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

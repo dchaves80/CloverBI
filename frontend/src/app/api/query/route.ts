@@ -1,12 +1,13 @@
-// API Route - Proxy interno al backend
-// Siempre usa la URL INTERNA del backend (env var BACKEND_URL)
-// La URL pública del DOM es solo para referencia/documentación
+// API Route - Proxy al backend
+// En producción Docker: usa URL interna (http://cloverbi-backend:3001)
+// En desarrollo local: puede usar backend remoto si no hay local
 
 import { NextRequest, NextResponse } from 'next/server'
 
-// 🔥 URL interna para comunicación entre contenedores Docker
-// En producción: http://cloverbi-backend:3001
-// En desarrollo: http://localhost:3002
+// 🔥 Backend URL - puede ser local o remoto
+// Producción: BACKEND_URL=http://cloverbi-backend:3001 (red Docker)
+// Desarrollo: BACKEND_URL=https://api-backend.cloverbi.neosolutions.com.ar (remoto)
+// Fallback: http://localhost:3002 (backend local dev)
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3002'
 
 export async function POST(req: NextRequest) {
