@@ -31,6 +31,7 @@ Usuario: "Ventas por sucursal del último mes"
 | [05-Roadmap](docs/05-roadmap.md) | Fases y pricing |
 | [10-Workspaces](docs/10-workspaces.md) | Workspaces, dashboards y cards (requerimiento esencial) |
 | [11-Estructura Navegación](docs/11-estructura-navegacion.md) | Sidebar, secciones y flujos de UI |
+| [12-DOM Integration](docs/12-dom-integration.md) | Integración con DataOilManager (autenticación y configuración multi-tenant) |
 | [06-Deployment Backend](docs/06-deployment-backend.md) | Deploy del backend (Fastify) |
 | [07-Deployment Frontend](docs/07-deployment-frontend.md) | Deploy del frontend (Next.js) |
 | [08-Stack](docs/08-stack.md) | Tecnologías, versiones, hot reload |
