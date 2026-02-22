@@ -71,22 +71,18 @@ export default function ExplorarPage() {
     setQuery('')
 
     try {
-      // 🔥 Obtener backend URL desde config del DOM
-      const config = getConfig()
-      const backendUrl = config.backend.url
-      
       logger.group('📊 Explorar: Enviando query', () => {
         logger.api('POST', '/api/query', { 
           prompt: queryText.substring(0, 50) + '...',
-          backendUrl 
         })
       })
       
+      // 🔥 El API route usa BACKEND_URL (interna) automáticamente
+      // No necesitamos pasar la URL pública del DOM
       const res = await fetch('/api/query', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'x-backend-url': backendUrl, // 🔥 Backend dinámico desde DOM
         },
         body: JSON.stringify({ prompt: queryText, darkMode }),
       })
