@@ -1,8 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import AppLayout from '@/components/AppLayout'
 import SaveTemplateModal from '@/components/SaveTemplateModal'
+import { getConfig } from '@/lib/config'
+import { logger } from '@/lib/logger'
 
 interface QueryResult {
   id: string
@@ -24,6 +26,7 @@ export default function ExplorarPage() {
   const [darkMode, setDarkMode] = useState(true)
   const [showSaveModal, setShowSaveModal] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null)
+  const resultIdRef = useRef(1) // 🔥 Contador único para IDs de resultados
 
   const user = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('cloverbi_user') || '{}') : {}
 
@@ -68,18 +71,37 @@ export default function ExplorarPage() {
     setQuery('')
 
     try {
+      // 🔥 Obtener backend URL desde config del DOM
+      const config = getConfig()
+      const backendUrl = config.backend.url
+      
+      logger.group('📊 Explorar: Enviando query', () => {
+        logger.api('POST', '/api/query', { 
+          prompt: queryText.substring(0, 50) + '...',
+          backendUrl 
+        })
+      })
+      
       const res = await fetch('/api/query', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-backend-url': backendUrl, // 🔥 Backend dinámico desde DOM
+        },
         body: JSON.stringify({ prompt: queryText, darkMode }),
       })
 
       if (!res.ok) throw new Error('Error en la consulta')
 
       const data = await res.json()
+      
+      logger.info('Query completada', { 
+        component: 'Explorar',
+        data: { htmlLength: data.html?.length || 0 }
+      })
 
       const newResult: QueryResult = {
-        id: Date.now().toString(),
+        id: `result-${resultIdRef.current++}`, // 🔥 ID único incremental
         query: queryText,
         timestamp: new Date(),
         html: data.html,
@@ -88,6 +110,7 @@ export default function ExplorarPage() {
       setResults(prev => [newResult, ...prev])
       setActiveTab(newResult.id)
     } catch (err) {
+      logger.error('Error en query', { component: 'Explorar', data: err })
       setError('No se pudo conectar con el servidor. ¿Está corriendo el backend?')
       console.error(err)
     } finally {

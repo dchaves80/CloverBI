@@ -1,13 +1,18 @@
 // API Route - Proxy interno al backend
-// El backend nunca se expone a internet
+// Usa la URL del backend desde la config del DOM (pasada via header)
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3002'
+import { NextRequest, NextResponse } from 'next/server'
 
-export async function POST(req: Request) {
+const DEFAULT_BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3002'
+
+export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     
-    const res = await fetch(`${BACKEND_URL}/api/query`, {
+    // 🔥 Obtener backend URL desde header (config dinámica del DOM)
+    const backendUrl = req.headers.get('x-backend-url') || DEFAULT_BACKEND_URL
+    
+    const res = await fetch(`${backendUrl}/api/query`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -15,18 +20,18 @@ export async function POST(req: Request) {
 
     if (!res.ok) {
       const error = await res.text()
-      return Response.json(
+      return NextResponse.json(
         { error: 'Error del backend', details: error },
         { status: res.status }
       )
     }
 
     const data = await res.json()
-    return Response.json(data)
+    return NextResponse.json(data)
     
   } catch (error) {
     console.error('Error conectando al backend:', error)
-    return Response.json(
+    return NextResponse.json(
       { error: 'No se pudo conectar con el backend' },
       { status: 500 }
     )
