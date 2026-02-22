@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import SaveTemplateModal from '@/components/SaveTemplateModal'
 
 interface QueryResult {
   id: string
@@ -12,8 +13,6 @@ interface QueryResult {
 }
 
 type LoadingPhase = 'connecting' | 'querying' | 'generating' | null
-
-// Backend via API Route interna (no expuesto a internet)
 
 export default function Home() {
   const [query, setQuery] = useState('')
@@ -27,6 +26,8 @@ export default function Home() {
   const [user, setUser] = useState<any>(null)
   const [roles, setRoles] = useState<any[]>([])
   const [authChecked, setAuthChecked] = useState(false)
+  const [showSaveModal, setShowSaveModal] = useState(false)
+  const [saveSuccess, setSaveSuccess] = useState<string | null>(null)
   const router = useRouter()
 
   // Verificar autenticación
@@ -43,15 +44,12 @@ export default function Home() {
     const parsedRoles = storedRoles ? JSON.parse(storedRoles) : []
     setRoles(parsedRoles)
     
-    // Verificar rol data_analyst para acceder al dashboard
     const hasAnalyst = parsedRoles.some((r: any) => r.name === 'data_analyst')
     if (!hasAnalyst) {
-      // Si no es analyst pero es trainer, va a training
       const hasTrainer = parsedRoles.some((r: any) => r.name === 'data_trainer')
       if (hasTrainer) {
         router.push('/training')
       } else {
-        // No tiene ningún rol válido
         router.push('/login')
       }
       return
@@ -68,7 +66,6 @@ export default function Home() {
     }
   }, [darkMode])
 
-  // Simular fases de progreso
   useEffect(() => {
     if (!loading) {
       setLoadingPhase(null)
@@ -90,6 +87,14 @@ export default function Home() {
       clearTimeout(timer2)
     }
   }, [loading])
+
+  // Clear save success message after 3 seconds
+  useEffect(() => {
+    if (saveSuccess) {
+      const timer = setTimeout(() => setSaveSuccess(null), 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [saveSuccess])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -145,17 +150,18 @@ export default function Home() {
     }
   }
 
-  // Helper para verificar roles
   const hasRole = (roleName: string) => roles.some(r => r.name === roleName)
 
-  // Logout function
   const handleLogout = () => {
     localStorage.removeItem('cloverbi_user')
     localStorage.removeItem('cloverbi_roles')
     router.push('/login')
   }
 
-  // Mostrar loading mientras verifica auth
+  const handleSaveSuccess = (templateId: string) => {
+    setSaveSuccess('Template guardado correctamente! ✅')
+  }
+
   if (!authChecked || !user) {
     return (
       <div className="min-h-screen bg-[#0a0f0a] flex items-center justify-center">
@@ -196,10 +202,17 @@ export default function Home() {
         </div>
       </header>
 
+      {/* Success Toast */}
+      {saveSuccess && (
+        <div className="fixed top-4 right-4 z-50 px-4 py-3 bg-clover text-white rounded-lg shadow-lg animate-pulse">
+          {saveSuccess}
+        </div>
+      )}
+
       {/* Tabs */}
       {results.length > 0 && (
         <div className="bg-bg-secondary border-b border-bg-card px-6 py-2 flex-shrink-0 overflow-x-auto transition-colors duration-300">
-          <div className="max-w-7xl mx-auto flex gap-2">
+          <div className="max-w-7xl mx-auto flex gap-2 items-center">
             {results.map((result) => (
               <button
                 key={result.id}
@@ -226,6 +239,17 @@ export default function Home() {
                 </span>
               </button>
             ))}
+            
+            {/* Save Template Button - only show when there's an active result */}
+            {activeResult && (
+              <button
+                onClick={() => setShowSaveModal(true)}
+                className="px-3 py-2 rounded-lg text-sm bg-bg-card hover:bg-clover/20 text-text-secondary hover:text-clover transition flex items-center gap-1 ml-auto"
+                title="Guardar como template"
+              >
+                💾 Guardar
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -324,6 +348,19 @@ export default function Home() {
           </div>
         </form>
       </div>
+
+      {/* Save Template Modal */}
+      {activeResult && user && (
+        <SaveTemplateModal
+          isOpen={showSaveModal}
+          onClose={() => setShowSaveModal(false)}
+          html={activeResult.html}
+          basePrompt={activeResult.query}
+          orgId={user.organization_uid || user.org_id || 'default'}
+          userId={user.uid || user.id || 'default'}
+          onSuccess={handleSaveSuccess}
+        />
+      )}
     </div>
   )
 }
