@@ -57,6 +57,8 @@ export default function AppLayout({ children, requireAuth = true, requireRole }:
   const handleLogout = () => {
     localStorage.removeItem('cloverbi_user')
     localStorage.removeItem('cloverbi_roles')
+    localStorage.removeItem('cloverbi_token') // 🔥 Limpiar ATR
+    localStorage.removeItem('cloverbi_config') // Limpiar config
     router.push('/login')
   }
 

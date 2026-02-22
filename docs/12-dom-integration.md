@@ -382,10 +382,11 @@ https://multit-back.digitalflow.ar/api-docs/
 ## 📋 Checklist de Integración
 
 - [x] Documentar rol del DOM
-- [ ] Implementar obtención de config desde DOM en frontend
-- [ ] Reemplazar variables de entorno hardcodeadas por config dinámica
-- [ ] Actualizar `/api/config` para consultar DOM
-- [ ] Guardar token del DOM en cookies/localStorage
+- [x] Implementar obtención de config desde DOM en frontend
+- [x] Reemplazar variables de entorno hardcodeadas por config dinámica
+- [x] Actualizar `/api/config` para consultar DOM
+- [x] Guardar token del DOM (ATR) en localStorage
+- [x] Crear utilidad `lib/config.ts` para acceso centralizado
 - [ ] Implementar refresh de config (polling o manual)
 - [ ] Documentar en README cómo configurar una nueva organización
 - [ ] Testing con múltiples organizaciones
@@ -402,5 +403,90 @@ https://multit-back.digitalflow.ar/api-docs/
 
 ---
 
+## ✅ Implementación Completada
+
+*Actualizado: 2026-02-22 22:00 GMT-3*
+
+### Flujo de Autenticación Implementado
+
+```
+1. Usuario ingresa email + password en /login
+   ↓
+2. POST /api/auth/login
+   - Llama a DOM /api/users/knockknock
+   - Retorna: user, roles, token (ATR)
+   ↓
+3. Frontend guarda en localStorage:
+   - cloverbi_user
+   - cloverbi_roles
+   - cloverbi_token (🔥 ATR)
+   ↓
+4. GET /api/config?organization_uid=...
+   - Header: knockknock: <ATR>
+   - Llama a DOM /api/organization-configs
+   - Retorna config de cloverbi
+   ↓
+5. Frontend guarda en localStorage:
+   - cloverbi_config
+   ↓
+6. Redirect a /overview o /training según roles
+```
+
+### Archivos Modificados
+
+| Archivo | Cambio |
+|---------|--------|
+| `/api/auth/login/route.ts` | ✅ Retorna `token` (ATR) en response |
+| `/app/login/page.tsx` | ✅ Guarda ATR + obtiene config desde DOM |
+| `/api/config/route.ts` | ✅ Reescrito para obtener config desde DOM usando ATR |
+| `/components/AppLayout.tsx` | ✅ Limpia ATR y config en logout |
+| `/lib/config.ts` | ✅ Creado - Utilidades para acceder a config/user/roles/token |
+
+### Uso de la Configuración Dinámica
+
+**En componentes cliente:**
+```typescript
+import { getConfig, getAuthToken } from '@/lib/config'
+
+const config = getConfig()
+const backendUrl = config.backend.url
+const ivyUrl = config.ivy.gateway_url
+
+// Hacer queries al backend dinámico
+fetch(`${backendUrl}/api/query`, {
+  headers: {
+    'knockknock': getAuthToken()!,
+  },
+  body: JSON.stringify(query)
+})
+```
+
+**En WebSocket (conexión a Ivy):**
+```typescript
+import { getConfig } from '@/lib/config'
+
+const config = getConfig()
+const ws = new WebSocket(config.ivy.gateway_url)
+```
+
+### Variables de Entorno Requeridas
+
+**Solo una:**
+```bash
+DOM_API_URL=https://multit-back.digitalflow.ar
+```
+
+**Todo lo demás viene del DOM.**
+
+### Testing
+
+**Usuarios de prueba (organización `dev_cloverbi`):**
+- `admin@cloverbi.dev` / `SeaLab2021` (roles: data_analyst + data_trainer)
+- `analyst.cloverbi@digitalflow.ar` / `SeaLab2021` (rol: data_analyst)
+- `trainer.cloverbi@digitalflow.ar` / `SeaLab2021` (rol: data_trainer)
+
+---
+
 *Documentado por: Cloe 💜*
 *Fecha: 2026-02-22 10:15 GMT-3*
+*Implementado: 2026-02-22 22:00 GMT-3*

@@ -38,6 +38,7 @@ export async function POST(request: NextRequest) {
           name: r.role_name,
           description: r.role_description,
         })),
+        token: data.data.token, // 🔥 ATR - Authentication Token Response
       })
     } else {
       return NextResponse.json(

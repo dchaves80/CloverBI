@@ -28,6 +28,29 @@ export default function LoginPage() {
         // Guardar en localStorage
         localStorage.setItem('cloverbi_user', JSON.stringify(data.user))
         localStorage.setItem('cloverbi_roles', JSON.stringify(data.roles))
+        localStorage.setItem('cloverbi_token', data.token) // 🔥 ATR guardado
+        
+        // Obtener configuración de la organización
+        try {
+          const configRes = await fetch(
+            `/api/config?organization_uid=${data.user.organization_uid}`,
+            {
+              headers: {
+                'knockknock': data.token, // 🔥 ATR en el header
+              },
+            }
+          )
+          
+          if (configRes.ok) {
+            const config = await configRes.json()
+            localStorage.setItem('cloverbi_config', JSON.stringify(config))
+            console.log('✅ Configuración obtenida desde DOM:', config)
+          } else {
+            console.warn('⚠️ No se pudo obtener la configuración')
+          }
+        } catch (err) {
+          console.warn('⚠️ Error obteniendo configuración:', err)
+        }
         
         // Redirect según roles
         const roleNames = data.roles.map((r: any) => r.name)
@@ -35,11 +58,11 @@ export default function LoginPage() {
         const hasTrainer = roleNames.includes('data_trainer')
         
         if (hasAnalyst) {
-          router.push('/') // Dashboard
+          router.push('/overview') // Nueva home
         } else if (hasTrainer) {
           router.push('/training') // Solo trainer
         } else {
-          router.push('/') // Default
+          router.push('/overview') // Default
         }
       } else {
         setError(data.error || 'Error de autenticación')
