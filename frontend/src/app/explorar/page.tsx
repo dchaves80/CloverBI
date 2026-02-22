@@ -71,15 +71,20 @@ export default function ExplorarPage() {
     setQuery('')
 
     try {
-      logger.group('📊 Explorar: Enviando query', () => {
-        logger.api('POST', '/api/query', { 
+      // 🔥 Obtener backend URL desde config del DOM (localStorage)
+      const config = getConfig()
+      const backendUrl = config.backend.url
+      
+      logger.group('📊 Explorar: Enviando query DIRECTA al backend', () => {
+        logger.api('POST', `${backendUrl}/api/query`, { 
           prompt: queryText.substring(0, 50) + '...',
+          backendUrl
         })
       })
       
-      // 🔥 Usar API route como proxy al backend
-      // La API route maneja la conexión interna al backend
-      const res = await fetch('/api/query', {
+      // 🔥 Llamar DIRECTAMENTE al backend (https://api.cloverbi.neosolutions.com.ar)
+      // Sin proxy, sin API route - llamada directa desde el navegador
+      const res = await fetch(`${backendUrl}/api/query`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
