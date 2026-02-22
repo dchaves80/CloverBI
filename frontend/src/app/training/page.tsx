@@ -1,8 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
+import AppLayout from '@/components/AppLayout'
 
 interface Message {
   id: string
@@ -21,58 +20,19 @@ export default function TrainingPage() {
   const [input, setInput] = useState('')
   const [connected, setConnected] = useState(false)
   const [connecting, setConnecting] = useState(true)
-  const [darkMode, setDarkMode] = useState(true)
   const [config, setConfig] = useState<GatewayConfig | null>(null)
-  const [user, setUser] = useState<any>(null)
-  const [roles, setRoles] = useState<any[]>([])
-  const [authChecked, setAuthChecked] = useState(false)
-  const router = useRouter()
   const wsRef = useRef<WebSocket | null>(null)
   const reqIdRef = useRef(1)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.remove('light')
-    } else {
-      document.documentElement.classList.add('light')
-    }
-  }, [darkMode])
-
-  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Verificar auth
-  useEffect(() => {
-    const storedUser = localStorage.getItem('cloverbi_user')
-    const storedRoles = localStorage.getItem('cloverbi_roles')
-    
-    if (!storedUser) {
-      router.push('/login')
-      return
-    }
-    
-    setUser(JSON.parse(storedUser))
-    const parsedRoles = storedRoles ? JSON.parse(storedRoles) : []
-    setRoles(parsedRoles)
-    
-    // Verificar rol data_trainer
-    const hasTrainer = parsedRoles.some((r: any) => r.name === 'data_trainer')
-    if (!hasTrainer) {
-      router.push('/') // No tiene permiso, va al dashboard
-      return
-    }
-    
-    setAuthChecked(true)
-  }, [router])
-
   // Fetch config from backend on mount
   useEffect(() => {
-    if (authChecked) {
-      fetchConfig()
-    }
-  }, [authChecked])
+    fetchConfig()
+  }, [])
 
   // Connect to WebSocket when config is available
   useEffect(() => {
@@ -192,12 +152,6 @@ export default function TrainingPage() {
     sendMessage(input)
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem('cloverbi_user')
-    localStorage.removeItem('cloverbi_roles')
-    router.push('/login')
-  }
-
   const quickActions = [
     { label: '🔍 Explorar DB', prompt: 'Explora la base de datos demo_bi y dime qué tablas hay' },
     { label: '📋 Ver ventas', prompt: 'Describe la tabla ventas con sus columnas' },
@@ -206,57 +160,28 @@ export default function TrainingPage() {
     { label: '📈 Dashboard KPIs', prompt: 'Genera un dashboard con KPIs de ventas' },
   ]
 
-  // Loading mientras verifica auth
-  if (!authChecked) {
-    return (
-      <div className="min-h-screen bg-[#0a0f0a] flex items-center justify-center">
-        <div className="text-emerald-400 font-mono">Verificando acceso...</div>
-      </div>
-    )
-  }
-
   return (
-    <div className="h-screen flex flex-col bg-bg-primary transition-colors duration-300">
-      {/* Header */}
-      <header className="bg-bg-secondary border-b border-bg-card px-6 py-3 flex-shrink-0 transition-colors duration-300">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link href="/" className="text-2xl hover:scale-110 transition-transform">🍀</Link>
-            <h1 className="text-xl font-bold text-clover">Clover BI</h1>
-            <span className="px-2 py-1 bg-amber-500/20 text-amber-400 text-xs font-bold rounded">
-              🌿 TRAINING
-            </span>
-          </div>
-          <nav className="flex items-center gap-4">
-            <div className={`px-3 py-1 rounded-full text-xs font-bold ${
+    <AppLayout requireRole="data_trainer">
+      <div className="h-full flex flex-col bg-bg-primary transition-colors duration-300">
+        {/* Header */}
+        <header className="bg-bg-secondary border-b border-bg-card px-6 py-4 flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="text-3xl">🎓</span>
+              <div>
+                <h1 className="text-2xl font-bold text-text-primary">Training</h1>
+                <p className="text-sm text-text-secondary">Entrena a Ivy con tus datos</p>
+              </div>
+            </div>
+            <div className={`px-3 py-1.5 rounded-full text-xs font-bold ${
               connected ? 'bg-green-500/20 text-green-400' : 
               connecting ? 'bg-amber-500/20 text-amber-400' : 
               'bg-red-500/20 text-red-400'
             }`}>
               {connected ? '● Conectado' : connecting ? '○ Conectando...' : '● Desconectado'}
             </div>
-            <button
-              onClick={() => setDarkMode(!darkMode)}
-              className="p-2 rounded-lg bg-bg-card hover:bg-border transition-colors"
-            >
-              {darkMode ? '🌙' : '☀️'}
-            </button>
-            <Link 
-              href="/"
-              className="px-3 py-2 bg-bg-card hover:bg-border rounded-lg text-sm transition"
-            >
-              ← Dashboard
-            </Link>
-            <button 
-              onClick={handleLogout} 
-              className="w-8 h-8 rounded-full bg-clover hover:bg-red-500 flex items-center justify-center text-white text-sm font-bold transition-colors" 
-              title="Cerrar sesión"
-            >
-              {(user?.name?.[0] || user?.email?.[0] || 'U').toUpperCase()}
-            </button>
-          </nav>
-        </div>
-      </header>
+          </div>
+        </header>
 
       {/* Main */}
       <div className="flex-1 flex overflow-hidden">
@@ -364,6 +289,7 @@ export default function TrainingPage() {
           </div>
         </aside>
       </div>
-    </div>
+      </div>
+    </AppLayout>
   )
 }
