@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import AppLayout from '@/components/AppLayout'
 import { getConfig } from '@/lib/config'
+import { logger } from '@/lib/logger'
 
 interface Message {
   id: string
@@ -46,33 +47,51 @@ export default function TrainingPage() {
   }, [config])
 
   const loadConfig = () => {
-    try {
-      const configData = getConfig() // 🔥 Lee desde localStorage, no hace fetch
-      if (configData?.ivy) {
-        setConfig({
-          gatewayUrl: configData.ivy.gateway_url,
-          gatewayToken: configData.ivy.gateway_token,
-        })
-      } else {
-        addMessage('system', '⚠️ No hay configuración disponible. Volvé a iniciar sesión.')
+    logger.group('⚙️ Training: Cargando config', () => {
+      try {
+        const configData = getConfig() // 🔥 Lee desde localStorage, no hace fetch
+        if (configData?.ivy) {
+          logger.info('Config Ivy cargada', {
+            component: 'Training',
+            data: {
+              gateway: configData.ivy.gateway_url,
+              hasToken: !!configData.ivy.gateway_token
+            }
+          })
+          setConfig({
+            gatewayUrl: configData.ivy.gateway_url,
+            gatewayToken: configData.ivy.gateway_token,
+          })
+        } else {
+          logger.error('Config Ivy no disponible', { component: 'Training' })
+          addMessage('system', '⚠️ No hay configuración disponible. Volvé a iniciar sesión.')
+          setConnecting(false)
+        }
+      } catch (error) {
+        logger.error('Error cargando config', { component: 'Training', data: error })
+        addMessage('system', '❌ Error cargando configuración')
         setConnecting(false)
       }
-    } catch (error) {
-      console.error('Error loading config:', error)
-      addMessage('system', '❌ Error cargando configuración')
-      setConnecting(false)
-    }
+    })
   }
 
   const connectWebSocket = (cfg: GatewayConfig) => {
     setConnecting(true)
+    logger.ws('connect', { url: cfg.gatewayUrl })
+    
     const ws = new WebSocket(cfg.gatewayUrl)
     wsRef.current = ws
 
+    ws.onopen = () => {
+      logger.ws('connect', { status: 'socket opened, esperando challenge' })
+    }
+
     ws.onmessage = (event) => {
       const msg = JSON.parse(event.data)
+      logger.ws('receive', { event: msg.event || msg.type, msg })
 
       if (msg.event === 'connect.challenge') {
+        logger.ws('send', { action: 'auth con token' })
         ws.send(JSON.stringify({
           type: 'req',
           id: String(reqIdRef.current++),
@@ -91,6 +110,7 @@ export default function TrainingPage() {
       }
 
       if (msg.type === 'res' && msg.ok && msg.payload?.type === 'hello-ok') {
+        logger.info('Conexión con Ivy establecida', { component: 'Training' })
         setConnected(true)
         setConnecting(false)
         addMessage('system', '✅ Conectado con Ivy. Podés empezar a entrenarla.')
@@ -108,11 +128,12 @@ export default function TrainingPage() {
       }
 
       if (msg.event === 'agent' && msg.payload?.data?.phase === 'end') {
-        // Response complete
+        logger.debug('Respuesta de Ivy completada', { component: 'Training' })
       }
     }
 
     ws.onclose = () => {
+      logger.warn('WebSocket cerrado, reconectando en 3s...', { component: 'Training' })
       setConnected(false)
       setConnecting(false)
       if (config) {
@@ -120,7 +141,8 @@ export default function TrainingPage() {
       }
     }
 
-    ws.onerror = () => {
+    ws.onerror = (error) => {
+      logger.error('Error en WebSocket', { component: 'Training', data: error })
       addMessage('system', '❌ Error de conexión')
     }
   }

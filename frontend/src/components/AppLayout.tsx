@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar from './Sidebar'
+import { logger } from '@/lib/logger'
 
 interface AppLayoutProps {
   children: React.ReactNode
@@ -26,32 +27,62 @@ export default function AppLayout({ children, requireAuth = true, requireRole }:
   }, [darkMode])
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('cloverbi_user')
-    const storedRoles = localStorage.getItem('cloverbi_roles')
-    
-    if (requireAuth && !storedUser) {
-      router.push('/login')
-      return
-    }
-
-    if (storedUser) {
-      const parsedUser = JSON.parse(storedUser)
-      const parsedRoles = storedRoles ? JSON.parse(storedRoles) : []
+    logger.group('🔐 AppLayout: Verificando auth', () => {
+      const storedUser = localStorage.getItem('cloverbi_user')
+      const storedRoles = localStorage.getItem('cloverbi_roles')
       
-      setUser(parsedUser)
-      setRoles(parsedRoles)
+      logger.debug('Auth check', {
+        component: 'AppLayout',
+        data: {
+          requireAuth,
+          requireRole,
+          hasUser: !!storedUser,
+          hasRoles: !!storedRoles
+        }
+      })
+      
+      if (requireAuth && !storedUser) {
+        logger.warn('Usuario no autenticado, redirigiendo a /login', { component: 'AppLayout' })
+        router.push('/login')
+        return
+      }
 
-      // Check required role
-      if (requireRole) {
-        const hasRequiredRole = parsedRoles.some((r: any) => r.name === requireRole)
-        if (!hasRequiredRole) {
-          router.push('/overview')
-          return
+      if (storedUser) {
+        const parsedUser = JSON.parse(storedUser)
+        const parsedRoles = storedRoles ? JSON.parse(storedRoles) : []
+        
+        logger.auth('check', {
+          email: parsedUser.email,
+          roles: parsedRoles.map((r: any) => r.name)
+        })
+        
+        setUser(parsedUser)
+        setRoles(parsedRoles)
+
+        // Check required role
+        if (requireRole) {
+          const hasRequiredRole = parsedRoles.some((r: any) => r.name === requireRole)
+          logger.debug('Role check', {
+            component: 'AppLayout',
+            data: {
+              required: requireRole,
+              userRoles: parsedRoles.map((r: any) => r.name),
+              hasAccess: hasRequiredRole
+            }
+          })
+          
+          if (!hasRequiredRole) {
+            logger.warn(`Usuario no tiene rol ${requireRole}, redirigiendo a /overview`, {
+              component: 'AppLayout'
+            })
+            router.push('/overview')
+            return
+          }
         }
       }
-    }
-    
-    setAuthChecked(true)
+      
+      setAuthChecked(true)
+    })
   }, [requireAuth, requireRole, router])
 
   const handleLogout = () => {
