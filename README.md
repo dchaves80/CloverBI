@@ -36,6 +36,7 @@ Usuario: "Ventas por sucursal del último mes"
 | [07-Deployment Frontend](docs/07-deployment-frontend.md) | Deploy del frontend (Next.js) |
 | [08-Stack](docs/08-stack.md) | Tecnologías, versiones, hot reload |
 | [09-Known Issues](docs/09-known-issues.md) | Issues conocidos y propuestas |
+| [DEBUG.md](frontend/DEBUG.md) | 🔍 **Sistema de logging y debugging** |
 
 ---
 
