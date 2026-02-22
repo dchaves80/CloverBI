@@ -29,6 +29,8 @@ Usuario: "Ventas por sucursal del último mes"
 | [03-Frontend](docs/03-frontend.md) | Páginas, estados, WebSocket protocol |
 | [04-MVP](docs/04-mvp.md) | Scope y timeline |
 | [05-Roadmap](docs/05-roadmap.md) | Fases y pricing |
+| [10-Workspaces](docs/10-workspaces.md) | Workspaces, dashboards y cards (requerimiento esencial) |
+| [11-Estructura Navegación](docs/11-estructura-navegacion.md) | Sidebar, secciones y flujos de UI |
 | [06-Deployment Backend](docs/06-deployment-backend.md) | Deploy del backend (Fastify) |
 | [07-Deployment Frontend](docs/07-deployment-frontend.md) | Deploy del frontend (Next.js) |
 | [08-Stack](docs/08-stack.md) | Tecnologías, versiones, hot reload |
