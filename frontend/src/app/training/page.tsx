@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import AppLayout from '@/components/AppLayout'
+import { getConfig } from '@/lib/config'
 
 interface Message {
   id: string
@@ -29,9 +30,9 @@ export default function TrainingPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Fetch config from backend on mount
+  // Load config from localStorage on mount
   useEffect(() => {
-    fetchConfig()
+    loadConfig()
   }, [])
 
   // Connect to WebSocket when config is available
@@ -44,15 +45,21 @@ export default function TrainingPage() {
     }
   }, [config])
 
-  const fetchConfig = async () => {
+  const loadConfig = () => {
     try {
-      const res = await fetch('/api/config')
-      if (!res.ok) throw new Error('Failed to fetch config')
-      const data = await res.json()
-      setConfig(data)
+      const configData = getConfig() // 🔥 Lee desde localStorage, no hace fetch
+      if (configData?.ivy) {
+        setConfig({
+          gatewayUrl: configData.ivy.gateway_url,
+          gatewayToken: configData.ivy.gateway_token,
+        })
+      } else {
+        addMessage('system', '⚠️ No hay configuración disponible. Volvé a iniciar sesión.')
+        setConnecting(false)
+      }
     } catch (error) {
-      console.error('Error fetching config:', error)
-      addMessage('system', '❌ Error obteniendo configuración del servidor')
+      console.error('Error loading config:', error)
+      addMessage('system', '❌ Error cargando configuración')
       setConnecting(false)
     }
   }
