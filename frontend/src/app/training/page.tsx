@@ -27,6 +27,7 @@ export default function TrainingPage() {
   const reqIdRef = useRef(1)
   const messageIdRef = useRef(1) // 🔥 Contador único para IDs de mensajes
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const isMountedRef = useRef(true) // 🔥 Trackea si el componente está montado
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -39,10 +40,15 @@ export default function TrainingPage() {
 
   // Connect to WebSocket when config is available
   useEffect(() => {
+    isMountedRef.current = true // 🔥 Componente montado
+    
     if (config) {
       connectWebSocket(config)
     }
+    
     return () => {
+      isMountedRef.current = false // 🔥 Componente desmontado - NO reconectar
+      logger.info('Training desmontado, cerrando WebSocket', { component: 'Training' })
       wsRef.current?.close()
     }
   }, [config])
@@ -201,18 +207,28 @@ export default function TrainingPage() {
         code: event.code,
         reason: event.reason || 'No reason provided',
         wasClean: event.wasClean,
-        willReconnect: !!config
+        willReconnect: !!config && isMountedRef.current
       })
       
       setConnected(false)
       setConnecting(false)
-      addMessage('system', `🔌 Desconectado (code: ${event.code}). Reconectando en 3s...`)
       
-      if (config) {
+      // 🔥 Solo reconectar si el componente sigue montado
+      if (config && isMountedRef.current) {
+        addMessage('system', `🔌 Desconectado (code: ${event.code}). Reconectando en 3s...`)
         setTimeout(() => {
-          logger.info('Intentando reconectar...', { component: 'Training' })
-          connectWebSocket(config)
+          if (isMountedRef.current) { // 🔥 Double-check antes de reconectar
+            logger.info('Intentando reconectar...', { component: 'Training' })
+            connectWebSocket(config)
+          } else {
+            logger.info('No reconectando - componente desmontado', { component: 'Training' })
+          }
         }, 3000)
+      } else {
+        logger.info('WebSocket cerrado - no reconectar', { 
+          component: 'Training',
+          data: { isMounted: isMountedRef.current }
+        })
       }
     }
 
