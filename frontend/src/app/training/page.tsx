@@ -77,22 +77,54 @@ export default function TrainingPage() {
 
   const connectWebSocket = (cfg: GatewayConfig) => {
     setConnecting(true)
-    logger.ws('connect', { url: cfg.gatewayUrl })
+    
+    logger.group('🌿 Conectando a Ivy (WebSocket)', () => {
+      logger.ws('connect', { 
+        url: cfg.gatewayUrl,
+        hasToken: !!cfg.gatewayToken,
+        protocol: cfg.gatewayUrl.startsWith('wss') ? 'WSS (secure)' : 'WS (insecure)'
+      })
+    })
     
     const ws = new WebSocket(cfg.gatewayUrl)
     wsRef.current = ws
 
     ws.onopen = () => {
-      logger.ws('connect', { status: 'socket opened, esperando challenge' })
+      logger.ws('open', { 
+        readyState: 'OPEN',
+        protocol: ws.protocol || 'default',
+        extensions: ws.extensions || 'none'
+      })
+      addMessage('system', '🔌 Socket abierto, esperando challenge...')
     }
 
     ws.onmessage = (event) => {
-      const msg = JSON.parse(event.data)
-      logger.ws('receive', { event: msg.event || msg.type, msg })
+      let msg
+      try {
+        msg = JSON.parse(event.data)
+      } catch (err) {
+        logger.error('Error parseando mensaje del WebSocket', { component: 'Training', data: event.data })
+        return
+      }
+
+      const messageType = msg.event || msg.type || 'unknown'
+      logger.ws('receive', { 
+        type: messageType,
+        size: event.data.length + ' bytes',
+        data: msg
+      })
 
       if (msg.event === 'connect.challenge') {
-        logger.ws('send', { action: 'auth con token' })
-        ws.send(JSON.stringify({
+        logger.group('🔐 Autenticando con Ivy', () => {
+          logger.ws('auth', {
+            action: 'Enviando credenciales',
+            role: 'operator',
+            scopes: ['operator.read', 'operator.write', 'operator.admin'],
+            hasToken: !!cfg.gatewayToken
+          })
+        })
+        
+        const authMessage = {
           type: 'req',
           id: String(reqIdRef.current++),
           method: 'connect',
@@ -106,11 +138,28 @@ export default function TrainingPage() {
             locale: 'es-AR',
             userAgent: 'clover-bi-training/1.0'
           }
-        }))
+        }
+        
+        logger.ws('send', {
+          method: 'connect',
+          size: JSON.stringify(authMessage).length + ' bytes'
+        })
+        
+        ws.send(JSON.stringify(authMessage))
       }
 
       if (msg.type === 'res' && msg.ok && msg.payload?.type === 'hello-ok') {
-        logger.info('Conexión con Ivy establecida', { component: 'Training' })
+        logger.group('✅ Conexión establecida con Ivy', () => {
+          logger.info('Handshake completado', {
+            component: 'Training',
+            data: {
+              sessionId: msg.payload?.sessionId || 'N/A',
+              protocol: msg.payload?.protocol || 'N/A',
+              capabilities: msg.payload?.caps || []
+            }
+          })
+        })
+        
         setConnected(true)
         setConnecting(false)
         addMessage('system', '✅ Conectado con Ivy. Podés empezar a entrenarla.')
@@ -118,8 +167,16 @@ export default function TrainingPage() {
 
       if (msg.event === 'agent' && msg.payload?.stream === 'assistant') {
         const text = msg.payload.data.text || ''
+        
+        // Solo loguear el primer chunk y el último para no saturar
         setMessages(prev => {
           const last = prev[prev.length - 1]
+          const isFirstChunk = !last || last.role !== 'assistant'
+          
+          if (isFirstChunk) {
+            logger.debug('Stream iniciado (assistant)', { component: 'Training' })
+          }
+          
           if (last?.role === 'assistant') {
             return [...prev.slice(0, -1), { ...last, content: text }]
           }
@@ -128,22 +185,43 @@ export default function TrainingPage() {
       }
 
       if (msg.event === 'agent' && msg.payload?.data?.phase === 'end') {
-        logger.debug('Respuesta de Ivy completada', { component: 'Training' })
+        logger.info('Respuesta completada', { 
+          component: 'Training',
+          data: {
+            tokensUsed: msg.payload?.data?.tokensUsed || 'N/A',
+            duration: msg.payload?.data?.duration || 'N/A'
+          }
+        })
       }
     }
 
-    ws.onclose = () => {
-      logger.warn('WebSocket cerrado, reconectando en 3s...', { component: 'Training' })
+    ws.onclose = (event) => {
+      logger.ws('disconnect', { 
+        code: event.code,
+        reason: event.reason || 'No reason provided',
+        wasClean: event.wasClean,
+        willReconnect: !!config
+      })
+      
       setConnected(false)
       setConnecting(false)
+      addMessage('system', `🔌 Desconectado (code: ${event.code}). Reconectando en 3s...`)
+      
       if (config) {
-        setTimeout(() => connectWebSocket(config), 3000)
+        setTimeout(() => {
+          logger.info('Intentando reconectar...', { component: 'Training' })
+          connectWebSocket(config)
+        }, 3000)
       }
     }
 
     ws.onerror = (error) => {
-      logger.error('Error en WebSocket', { component: 'Training', data: error })
-      addMessage('system', '❌ Error de conexión')
+      logger.ws('error', { 
+        error: error,
+        readyState: ws.readyState,
+        readyStateText: ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'][ws.readyState]
+      })
+      addMessage('system', '❌ Error de conexión con Ivy')
     }
   }
 
@@ -157,12 +235,22 @@ export default function TrainingPage() {
   }
 
   const sendMessage = (text: string) => {
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN || !text.trim()) return
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN || !text.trim()) {
+      logger.warn('No se puede enviar mensaje', {
+        component: 'Training',
+        data: {
+          wsExists: !!wsRef.current,
+          readyState: wsRef.current?.readyState,
+          hasText: !!text.trim()
+        }
+      })
+      return
+    }
 
     addMessage('user', text)
     addMessage('assistant', '...')
 
-    wsRef.current.send(JSON.stringify({
+    const message = {
       type: 'req',
       id: String(reqIdRef.current++),
       method: 'chat.send',
@@ -171,8 +259,15 @@ export default function TrainingPage() {
         idempotencyKey: crypto.randomUUID(),
         message: "[TRAINING] " + text
       }
-    }))
+    }
 
+    logger.ws('send', {
+      method: 'chat.send',
+      messageLength: text.length,
+      sessionKey: 'agent:main:training'
+    })
+
+    wsRef.current.send(JSON.stringify(message))
     setInput('')
   }
 

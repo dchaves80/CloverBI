@@ -81,8 +81,9 @@ class Logger {
     this.info(`Auth ${action}`, { component: 'Auth', data })
   }
 
-  ws(action: 'connect' | 'disconnect' | 'send' | 'receive', data?: any) {
-    this.debug(`WebSocket ${action}`, { component: 'WebSocket', data })
+  ws(action: 'connect' | 'disconnect' | 'send' | 'receive' | 'open' | 'error' | 'auth', data?: any) {
+    const level = action === 'error' ? 'error' : action === 'disconnect' ? 'warn' : 'info'
+    this.log(level, `WebSocket ${action}`, { component: 'WebSocket', data })
   }
 
   api(method: string, endpoint: string, data?: any) {

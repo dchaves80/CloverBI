@@ -38,11 +38,57 @@ CloverBI ahora incluye un sistema de logging centralizado que te ayuda a debugge
 ```
 ⚙️ Training: Cargando config
   ✅ Config Ivy cargada
-  🔍 WebSocket connect
-  🔍 WebSocket receive (connect.challenge)
-  🔍 WebSocket send (auth con token)
-  🔍 WebSocket receive (hello-ok)
-  ✅ Conexión con Ivy establecida
+  
+🌿 Conectando a Ivy (WebSocket)
+  ✅ WebSocket connect
+    url: wss://clover.neosolutions.com.ar/
+    hasToken: true
+    protocol: WSS (secure)
+  ✅ WebSocket open
+    readyState: OPEN
+    protocol: default
+    extensions: none
+  ✅ WebSocket receive
+    type: connect.challenge
+    size: 234 bytes
+    
+🔐 Autenticando con Ivy
+  ✅ WebSocket auth
+    action: Enviando credenciales
+    role: operator
+    scopes: [operator.read, operator.write, operator.admin]
+    hasToken: true
+  ✅ WebSocket send
+    method: connect
+    size: 567 bytes
+  ✅ WebSocket receive
+    type: res
+    size: 189 bytes
+    
+✅ Conexión establecida con Ivy
+  ✅ Handshake completado
+    sessionId: abc123...
+    protocol: 3
+    capabilities: [...]
+
+// Cuando envías un mensaje:
+✅ WebSocket send
+  method: chat.send
+  messageLength: 45
+  sessionKey: agent:main:training
+
+// Cuando recibes respuesta:
+🔍 Stream iniciado (assistant)
+✅ Respuesta completada
+  tokensUsed: 234
+  duration: 1234ms
+
+// Si se desconecta:
+⚠️ WebSocket disconnect
+  code: 1006
+  reason: Connection lost
+  wasClean: false
+  willReconnect: true
 ```
 
 ---
@@ -147,10 +193,40 @@ logger.setEnabled(true)
 ### Problema: "WebSocket no conecta"
 **Buscar en consola:**
 ```
-🔍 WebSocket connect
-❌ Error en WebSocket
+✅ WebSocket connect
+  url: wss://...
+  protocol: WSS (secure)
+❌ WebSocket error
+  readyState: 3 (CLOSED)
 ```
-**Revisar:** Config de Ivy (gateway_url correcto?)
+
+**Posibles causas:**
+1. **URL incorrecta** - Revisar `gateway_url` en config
+2. **Token inválido** - Revisar `gateway_token` en config  
+3. **Firewall bloqueando WSS** - Verificar puerto 443/80 abierto
+4. **Ivy no está corriendo** - Verificar que el servidor Ivy esté up
+
+**Cómo diagnosticar:**
+- Si ves `WebSocket connect` pero nunca `WebSocket open` → problema de red/firewall
+- Si ves `WebSocket open` pero luego `error` → problema de auth/token
+- Si ves `connect.challenge` pero nunca `hello-ok` → token inválido
+
+### Problema: "WebSocket se desconecta constantemente"
+**Buscar en consola:**
+```
+⚠️ WebSocket disconnect
+  code: 1006
+  reason: Abnormal closure
+  wasClean: false
+  willReconnect: true
+```
+
+**Códigos de cierre comunes:**
+- `1000` - Normal closure (todo OK)
+- `1001` - Going away (servidor cerrándose)
+- `1006` - Abnormal closure (red cortada, timeout)
+- `1008` - Policy violation (auth rechazada)
+- `1011` - Server error (Ivy tuvo un error)
 
 ### Problema: "Usuario no autenticado"
 **Buscar en consola:**
@@ -158,6 +234,52 @@ logger.setEnabled(true)
 ⚠️ Usuario no autenticado, redirigiendo a /login
 ```
 **Solución:** Session expirada, hacer login de nuevo
+
+---
+
+## 🌐 Debugging Específico WSS
+
+### Verificar handshake completo:
+
+**Secuencia esperada:**
+1. ✅ `WebSocket connect` - Iniciando conexión
+2. ✅ `WebSocket open` - Socket abierto
+3. ✅ `WebSocket receive (connect.challenge)` - Servidor pide auth
+4. ✅ `WebSocket send (connect)` - Enviamos credenciales
+5. ✅ `WebSocket receive (res)` - Respuesta del servidor
+6. ✅ `Handshake completado` - ¡Conectado!
+
+**Si falta algún paso**, ahí está el problema.
+
+### Verificar datos de conexión:
+
+```typescript
+// En consola del navegador, durante la conexión:
+// Deberías ver algo como:
+{
+  url: "wss://clover.neosolutions.com.ar/",
+  hasToken: true,
+  protocol: "WSS (secure)"
+}
+```
+
+Si `hasToken: false` → Config de Ivy no tiene token (volver a login)
+Si `protocol: "WS (insecure)"` → Usando HTTP en vez de HTTPS (problema de config)
+
+### Ver mensajes en tiempo real:
+
+Todos los mensajes enviados/recibidos se loguean con:
+- **Tipo de mensaje** (connect.challenge, agent, etc.)
+- **Tamaño en bytes** 
+- **Data completa** (expandible en consola)
+
+Ejemplo:
+```
+✅ WebSocket receive
+  type: agent
+  size: 1234 bytes
+  ▶ data: {...}  ← Click para expandir
+```
 
 ---
 
