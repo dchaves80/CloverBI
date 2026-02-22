@@ -25,6 +25,7 @@ export default function TrainingPage() {
   const [config, setConfig] = useState<GatewayConfig | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const reqIdRef = useRef(1)
+  const messageIdRef = useRef(1) // 🔥 Contador único para IDs de mensajes
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -227,7 +228,7 @@ export default function TrainingPage() {
 
   const addMessage = (role: Message['role'], content: string) => {
     setMessages(prev => [...prev, {
-      id: Date.now().toString(),
+      id: `msg-${messageIdRef.current++}`, // 🔥 ID único incremental
       role,
       content,
       timestamp: new Date()
