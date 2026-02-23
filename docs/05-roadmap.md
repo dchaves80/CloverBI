@@ -5,41 +5,48 @@
 ```mermaid
 timeline
     title Clover BI Evolution
-    MVP : PostgreSQL
-        : Chat básico
-        : Gráficos simples
-    v1.0 : Multi-DB
+    MVP ✅ Feb/2026 : Multi-DB (PG/MSSQL/MySQL)
+                   : Ivy Agent + Training
+                   : Gráficos Chart.js
+                   : DOM Auth + Roles
+                   : Templates v2
+    v1.0 : Workspaces
          : Dashboards guardados
          : Compartir
-    v2.0 : Alertas
+         : Exportar PDF/Excel
+    v2.0 : Alertas automáticas
+         : Reportes por Email/Telegram/WhatsApp
          : API pública
          : White-label
     v3.0 : On-premise
-         : Enterprise
-         : Integraciones
-    v4.0 : SQL Tools integrados
+         : Enterprise / SSO
+         : Integraciones (Salesforce, SAP)
+    v4.0 : Memoria asociativa
          : Agente autónomo
-         : Multi-engine DB
+         : Multi-engine avanzado
 ```
 ---
 
-## Fase 1: MVP (Semanas 1-6)
+## Fase 1: MVP ✅ COMPLETADO (Feb 2026)
 
 > "Funciona. Es útil. Es simple."
 
 ### Entregables
 - [x] Documentación completa
-- [ ] Auth básica (JWT)
-- [ ] Conexión PostgreSQL
-- [ ] Chat con Clover Agent
-- [ ] Gráficos en iframe (Chart.js)
-- [ ] Deploy en producción
-- [ ] Beta cerrada (5-10 usuarios)
+- [x] **Auth con DOM** (login, logout, roles, ATR) — superó JWT original
+- [x] **Multi-DB: PostgreSQL, MSSQL, MySQL** — superó el scope inicial (solo PostgreSQL)
+- [x] **Chat con Ivy Agent** (WebSocket, training, dashboards en lenguaje natural)
+- [x] **Gráficos en iframe** (Chart.js — barras, líneas, torta, KPIs, dark/light mode)
+- [x] **Deploy en producción** (https://clover.neosolutions.com.ar)
+- [x] **Sidebar con navegación por roles** (data_trainer / data_analyst)
+- [x] **Templates v2** (Ivy-Native Templating, multi-query, save/load)
+- [x] **DOM integration completa** (multi-tenant, org configs dinámicos)
+- [ ] Beta cerrada (5-10 usuarios) — *en curso: demos con Digital Flow*
 
 ### Métricas de Éxito
-- Usuario puede hacer consultas sin ayuda
-- Tiempo de respuesta < 10s
-- 80%+ consultas generan resultados útiles
+- Usuario puede hacer consultas sin ayuda ✅
+- Tiempo de respuesta < 10s ✅
+- 80%+ consultas generan resultados útiles ✅
 
 ---
 

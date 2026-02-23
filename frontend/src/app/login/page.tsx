@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { logger } from '@/lib/logger'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -15,7 +16,12 @@ export default function LoginPage() {
     setError('')
     setLoading(true)
 
+    logger.group('🔐 Login Flow', () => {
+      logger.info('Iniciando login', { component: 'Login', data: { email } })
+    })
+
     try {
+      logger.api('POST', '/api/auth/login')
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -25,26 +31,77 @@ export default function LoginPage() {
       const data = await res.json()
 
       if (data.success) {
-        // Guardar en localStorage
-        localStorage.setItem('cloverbi_user', JSON.stringify(data.user))
-        localStorage.setItem('cloverbi_roles', JSON.stringify(data.roles))
+        logger.group('✅ Login exitoso', () => {
+          // Guardar en localStorage
+          logger.info('Guardando usuario en localStorage', { 
+            component: 'Login',
+            data: { 
+              email: data.user.email,
+              organization: data.user.organization_name,
+              roles: data.roles.map((r: any) => r.name)
+            }
+          })
+          
+          localStorage.setItem('cloverbi_user', JSON.stringify(data.user))
+          localStorage.setItem('cloverbi_roles', JSON.stringify(data.roles))
+          localStorage.setItem('cloverbi_token', data.token) // 🔥 ATR guardado
+          
+          // Obtener configuración de la organización
+          logger.info('Obteniendo config desde DOM...', { component: 'Login' })
+        })
+        
+        try {
+          logger.api('GET', `/api/config?organization_uid=${data.user.organization_uid}`)
+          const configRes = await fetch(
+            `/api/config?organization_uid=${data.user.organization_uid}`,
+            {
+              headers: {
+                'knockknock': data.token, // 🔥 ATR en el header
+              },
+            }
+          )
+          
+          if (configRes.ok) {
+            const config = await configRes.json()
+            localStorage.setItem('cloverbi_config', JSON.stringify(config))
+            logger.config('save', config)
+          } else {
+            logger.warn('No se pudo obtener configuración desde DOM', {
+              component: 'Login',
+              data: { status: configRes.status }
+            })
+          }
+        } catch (err) {
+          logger.error('Error obteniendo configuración', { 
+            component: 'Login', 
+            data: err 
+          })
+        }
         
         // Redirect según roles
         const roleNames = data.roles.map((r: any) => r.name)
         const hasAnalyst = roleNames.includes('data_analyst')
         const hasTrainer = roleNames.includes('data_trainer')
         
-        if (hasAnalyst) {
-          router.push('/') // Dashboard
-        } else if (hasTrainer) {
-          router.push('/training') // Solo trainer
-        } else {
-          router.push('/') // Default
-        }
+        const redirectTo = hasAnalyst ? '/overview' : hasTrainer ? '/training' : '/overview'
+        logger.info(`Redirigiendo a ${redirectTo}`, { 
+          component: 'Login',
+          data: { roles: roleNames }
+        })
+        
+        router.push(redirectTo)
       } else {
+        logger.error('Login fallido', { 
+          component: 'Login',
+          data: { error: data.error }
+        })
         setError(data.error || 'Error de autenticación')
       }
     } catch (err) {
+      logger.error('Error de conexión en login', { 
+        component: 'Login',
+        data: err
+      })
       setError('Error de conexión')
     } finally {
       setLoading(false)

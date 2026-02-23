@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
+import AppLayout from '@/components/AppLayout'
+import { getConfig } from '@/lib/config'
+import { logger } from '@/lib/logger'
 
 interface Message {
   id: string
@@ -21,92 +22,116 @@ export default function TrainingPage() {
   const [input, setInput] = useState('')
   const [connected, setConnected] = useState(false)
   const [connecting, setConnecting] = useState(true)
-  const [darkMode, setDarkMode] = useState(true)
   const [config, setConfig] = useState<GatewayConfig | null>(null)
-  const [user, setUser] = useState<any>(null)
-  const [roles, setRoles] = useState<any[]>([])
-  const [authChecked, setAuthChecked] = useState(false)
-  const router = useRouter()
   const wsRef = useRef<WebSocket | null>(null)
   const reqIdRef = useRef(1)
+  const messageIdRef = useRef(1) // 🔥 Contador único para IDs de mensajes
   const messagesEndRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.remove('light')
-    } else {
-      document.documentElement.classList.add('light')
-    }
-  }, [darkMode])
+  const isMountedRef = useRef(true) // 🔥 Trackea si el componente está montado
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Verificar auth
+  // Load config from localStorage on mount
   useEffect(() => {
-    const storedUser = localStorage.getItem('cloverbi_user')
-    const storedRoles = localStorage.getItem('cloverbi_roles')
-    
-    if (!storedUser) {
-      router.push('/login')
-      return
-    }
-    
-    setUser(JSON.parse(storedUser))
-    const parsedRoles = storedRoles ? JSON.parse(storedRoles) : []
-    setRoles(parsedRoles)
-    
-    // Verificar rol data_trainer
-    const hasTrainer = parsedRoles.some((r: any) => r.name === 'data_trainer')
-    if (!hasTrainer) {
-      router.push('/') // No tiene permiso, va al dashboard
-      return
-    }
-    
-    setAuthChecked(true)
-  }, [router])
-
-  // Fetch config from backend on mount
-  useEffect(() => {
-    if (authChecked) {
-      fetchConfig()
-    }
-  }, [authChecked])
+    loadConfig()
+  }, [])
 
   // Connect to WebSocket when config is available
   useEffect(() => {
+    isMountedRef.current = true // 🔥 Componente montado
+    
     if (config) {
       connectWebSocket(config)
     }
+    
     return () => {
+      isMountedRef.current = false // 🔥 Componente desmontado - NO reconectar
+      logger.info('Training desmontado, cerrando WebSocket', { component: 'Training' })
       wsRef.current?.close()
     }
   }, [config])
 
-  const fetchConfig = async () => {
-    try {
-      const res = await fetch('/api/config')
-      if (!res.ok) throw new Error('Failed to fetch config')
-      const data = await res.json()
-      setConfig(data)
-    } catch (error) {
-      console.error('Error fetching config:', error)
-      addMessage('system', '❌ Error obteniendo configuración del servidor')
-      setConnecting(false)
-    }
+  const loadConfig = () => {
+    logger.group('⚙️ Training: Cargando config', () => {
+      try {
+        const configData = getConfig() // 🔥 Lee desde localStorage, no hace fetch
+        if (configData?.ivy) {
+          logger.info('Config Ivy cargada', {
+            component: 'Training',
+            data: {
+              gateway: configData.ivy.gateway_url,
+              hasToken: !!configData.ivy.gateway_token
+            }
+          })
+          setConfig({
+            gatewayUrl: configData.ivy.gateway_url,
+            gatewayToken: configData.ivy.gateway_token,
+          })
+        } else {
+          logger.error('Config Ivy no disponible', { component: 'Training' })
+          addMessage('system', '⚠️ No hay configuración disponible. Volvé a iniciar sesión.')
+          setConnecting(false)
+        }
+      } catch (error) {
+        logger.error('Error cargando config', { component: 'Training', data: error })
+        addMessage('system', '❌ Error cargando configuración')
+        setConnecting(false)
+      }
+    })
   }
 
   const connectWebSocket = (cfg: GatewayConfig) => {
     setConnecting(true)
+    
+    logger.group('🌿 Conectando a Ivy (WebSocket)', () => {
+      logger.ws('connect', { 
+        url: cfg.gatewayUrl,
+        hasToken: !!cfg.gatewayToken,
+        protocol: cfg.gatewayUrl.startsWith('wss') ? 'WSS (secure)' : 'WS (insecure)'
+      })
+    })
+    
     const ws = new WebSocket(cfg.gatewayUrl)
     wsRef.current = ws
 
+    ws.onopen = () => {
+      logger.ws('open', { 
+        readyState: 'OPEN',
+        protocol: ws.protocol || 'default',
+        extensions: ws.extensions || 'none'
+      })
+      addMessage('system', '🔌 Socket abierto, esperando challenge...')
+    }
+
     ws.onmessage = (event) => {
-      const msg = JSON.parse(event.data)
+      let msg
+      try {
+        msg = JSON.parse(event.data)
+      } catch (err) {
+        logger.error('Error parseando mensaje del WebSocket', { component: 'Training', data: event.data })
+        return
+      }
+
+      const messageType = msg.event || msg.type || 'unknown'
+      logger.ws('receive', { 
+        type: messageType,
+        size: event.data.length + ' bytes',
+        data: msg
+      })
 
       if (msg.event === 'connect.challenge') {
-        ws.send(JSON.stringify({
+        logger.group('🔐 Autenticando con Ivy', () => {
+          logger.ws('auth', {
+            action: 'Enviando credenciales',
+            role: 'operator',
+            scopes: ['operator.read', 'operator.write', 'operator.admin'],
+            hasToken: !!cfg.gatewayToken
+          })
+        })
+        
+        const authMessage = {
           type: 'req',
           id: String(reqIdRef.current++),
           method: 'connect',
@@ -120,10 +145,28 @@ export default function TrainingPage() {
             locale: 'es-AR',
             userAgent: 'clover-bi-training/1.0'
           }
-        }))
+        }
+        
+        logger.ws('send', {
+          method: 'connect',
+          size: JSON.stringify(authMessage).length + ' bytes'
+        })
+        
+        ws.send(JSON.stringify(authMessage))
       }
 
       if (msg.type === 'res' && msg.ok && msg.payload?.type === 'hello-ok') {
+        logger.group('✅ Conexión establecida con Ivy', () => {
+          logger.info('Handshake completado', {
+            component: 'Training',
+            data: {
+              sessionId: msg.payload?.sessionId || 'N/A',
+              protocol: msg.payload?.protocol || 'N/A',
+              capabilities: msg.payload?.caps || []
+            }
+          })
+        })
+        
         setConnected(true)
         setConnecting(false)
         addMessage('system', '✅ Conectado con Ivy. Podés empezar a entrenarla.')
@@ -131,8 +174,16 @@ export default function TrainingPage() {
 
       if (msg.event === 'agent' && msg.payload?.stream === 'assistant') {
         const text = msg.payload.data.text || ''
+        
+        // Solo loguear el primer chunk y el último para no saturar
         setMessages(prev => {
           const last = prev[prev.length - 1]
+          const isFirstChunk = !last || last.role !== 'assistant'
+          
+          if (isFirstChunk) {
+            logger.debug('Stream iniciado (assistant)', { component: 'Training' })
+          }
+          
           if (last?.role === 'assistant') {
             return [...prev.slice(0, -1), { ...last, content: text }]
           }
@@ -141,26 +192,59 @@ export default function TrainingPage() {
       }
 
       if (msg.event === 'agent' && msg.payload?.data?.phase === 'end') {
-        // Response complete
+        logger.info('Respuesta completada', { 
+          component: 'Training',
+          data: {
+            tokensUsed: msg.payload?.data?.tokensUsed || 'N/A',
+            duration: msg.payload?.data?.duration || 'N/A'
+          }
+        })
       }
     }
 
-    ws.onclose = () => {
+    ws.onclose = (event) => {
+      logger.ws('disconnect', { 
+        code: event.code,
+        reason: event.reason || 'No reason provided',
+        wasClean: event.wasClean,
+        willReconnect: !!config && isMountedRef.current
+      })
+      
       setConnected(false)
       setConnecting(false)
-      if (config) {
-        setTimeout(() => connectWebSocket(config), 3000)
+      
+      // 🔥 Solo reconectar si el componente sigue montado
+      if (config && isMountedRef.current) {
+        addMessage('system', `🔌 Desconectado (code: ${event.code}). Reconectando en 3s...`)
+        setTimeout(() => {
+          if (isMountedRef.current) { // 🔥 Double-check antes de reconectar
+            logger.info('Intentando reconectar...', { component: 'Training' })
+            connectWebSocket(config)
+          } else {
+            logger.info('No reconectando - componente desmontado', { component: 'Training' })
+          }
+        }, 3000)
+      } else {
+        logger.info('WebSocket cerrado - no reconectar', { 
+          component: 'Training',
+          data: { isMounted: isMountedRef.current }
+        })
       }
     }
 
-    ws.onerror = () => {
-      addMessage('system', '❌ Error de conexión')
+    ws.onerror = (error) => {
+      logger.ws('error', { 
+        error: error,
+        readyState: ws.readyState,
+        readyStateText: ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'][ws.readyState]
+      })
+      addMessage('system', '❌ Error de conexión con Ivy')
     }
   }
 
   const addMessage = (role: Message['role'], content: string) => {
     setMessages(prev => [...prev, {
-      id: Date.now().toString(),
+      id: `msg-${messageIdRef.current++}`, // 🔥 ID único incremental
       role,
       content,
       timestamp: new Date()
@@ -168,12 +252,22 @@ export default function TrainingPage() {
   }
 
   const sendMessage = (text: string) => {
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN || !text.trim()) return
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN || !text.trim()) {
+      logger.warn('No se puede enviar mensaje', {
+        component: 'Training',
+        data: {
+          wsExists: !!wsRef.current,
+          readyState: wsRef.current?.readyState,
+          hasText: !!text.trim()
+        }
+      })
+      return
+    }
 
     addMessage('user', text)
     addMessage('assistant', '...')
 
-    wsRef.current.send(JSON.stringify({
+    const message = {
       type: 'req',
       id: String(reqIdRef.current++),
       method: 'chat.send',
@@ -182,20 +276,21 @@ export default function TrainingPage() {
         idempotencyKey: crypto.randomUUID(),
         message: "[TRAINING] " + text
       }
-    }))
+    }
 
+    logger.ws('send', {
+      method: 'chat.send',
+      messageLength: text.length,
+      sessionKey: 'agent:main:training'
+    })
+
+    wsRef.current.send(JSON.stringify(message))
     setInput('')
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     sendMessage(input)
-  }
-
-  const handleLogout = () => {
-    localStorage.removeItem('cloverbi_user')
-    localStorage.removeItem('cloverbi_roles')
-    router.push('/login')
   }
 
   const quickActions = [
@@ -206,57 +301,28 @@ export default function TrainingPage() {
     { label: '📈 Dashboard KPIs', prompt: 'Genera un dashboard con KPIs de ventas' },
   ]
 
-  // Loading mientras verifica auth
-  if (!authChecked) {
-    return (
-      <div className="min-h-screen bg-[#0a0f0a] flex items-center justify-center">
-        <div className="text-emerald-400 font-mono">Verificando acceso...</div>
-      </div>
-    )
-  }
-
   return (
-    <div className="h-screen flex flex-col bg-bg-primary transition-colors duration-300">
-      {/* Header */}
-      <header className="bg-bg-secondary border-b border-bg-card px-6 py-3 flex-shrink-0 transition-colors duration-300">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link href="/" className="text-2xl hover:scale-110 transition-transform">🍀</Link>
-            <h1 className="text-xl font-bold text-clover">Clover BI</h1>
-            <span className="px-2 py-1 bg-amber-500/20 text-amber-400 text-xs font-bold rounded">
-              🌿 TRAINING
-            </span>
-          </div>
-          <nav className="flex items-center gap-4">
-            <div className={`px-3 py-1 rounded-full text-xs font-bold ${
+    <AppLayout requireRole="data_trainer">
+      <div className="h-full flex flex-col bg-bg-primary transition-colors duration-300">
+        {/* Header */}
+        <header className="bg-bg-secondary border-b border-bg-card px-6 py-4 flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="text-3xl">🎓</span>
+              <div>
+                <h1 className="text-2xl font-bold text-text-primary">Training</h1>
+                <p className="text-sm text-text-secondary">Entrena a Ivy con tus datos</p>
+              </div>
+            </div>
+            <div className={`px-3 py-1.5 rounded-full text-xs font-bold ${
               connected ? 'bg-green-500/20 text-green-400' : 
               connecting ? 'bg-amber-500/20 text-amber-400' : 
               'bg-red-500/20 text-red-400'
             }`}>
               {connected ? '● Conectado' : connecting ? '○ Conectando...' : '● Desconectado'}
             </div>
-            <button
-              onClick={() => setDarkMode(!darkMode)}
-              className="p-2 rounded-lg bg-bg-card hover:bg-border transition-colors"
-            >
-              {darkMode ? '🌙' : '☀️'}
-            </button>
-            <Link 
-              href="/"
-              className="px-3 py-2 bg-bg-card hover:bg-border rounded-lg text-sm transition"
-            >
-              ← Dashboard
-            </Link>
-            <button 
-              onClick={handleLogout} 
-              className="w-8 h-8 rounded-full bg-clover hover:bg-red-500 flex items-center justify-center text-white text-sm font-bold transition-colors" 
-              title="Cerrar sesión"
-            >
-              {(user?.name?.[0] || user?.email?.[0] || 'U').toUpperCase()}
-            </button>
-          </nav>
-        </div>
-      </header>
+          </div>
+        </header>
 
       {/* Main */}
       <div className="flex-1 flex overflow-hidden">
@@ -364,6 +430,7 @@ export default function TrainingPage() {
           </div>
         </aside>
       </div>
-    </div>
+      </div>
+    </AppLayout>
   )
 }
