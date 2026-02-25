@@ -77,7 +77,7 @@ timeline
 ### 🗂️ Workspace de Dashboards
 - [ ] Guardar dashboards generados dinámicamente
 - [ ] Reutilizar consultas con modificación de rango de fechas
-- [ ] Editar métricas y visualizaciones post-generación
+- [ ] Modificación de tarjeta por lenguaje natural
 - [ ] Agregar / eliminar paneles
 - [ ] Exportar dashboards completos
 - [ ] Versionar dashboards (v1, v2, etc.)
@@ -305,6 +305,12 @@ timeline
 - [x] Integración completa con DOM — login, logout, roles, deploy producción
 
 ### 🔴 URGENTE
+- [ ] **Guardar Dashboard + Reutilización por Rango de Fechas** ⭐ *PRÓXIMA ENTREGA*
+  - Guardar dashboards generados dinámicamente
+  - Detectar automáticamente si el dashboard usa rangos de fecha (`fecha_inicio`, `fecha_fin`, etc.)
+  - Permitir al usuario cambiar el rango y reejecutar **sin re-invocar a Ivy** (reutiliza el template, ejecuta las queries con nuevas fechas)
+  - Objetivo: **reducir costo de tokens** — Ivy genera una vez, el cliente reutiliza N veces
+  - 📄 Ver: [Plan de Workspaces](10-workspaces.md)
 - [ ] **Workspace de Dashboards** — guardar, editar, versionar (UI + backend)
   - 📄 Ver: [Plan de Workspaces](10-workspaces.md)
 - 🔄 **Templates — save/load completo** — *EN PROGRESO (2026-02-25)*
