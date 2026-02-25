@@ -75,8 +75,15 @@ timeline
 > "Listo para vender."
 
 ### 🗂️ Workspace de Dashboards
-- [ ] Guardar dashboards generados dinámicamente
-- [ ] Reutilizar consultas con modificación de rango de fechas
+
+#### ⭐ Próxima Entrega — Guardar & Reutilizar por Fechas
+- [ ] **Paso 1** — Botón "Guardar Dashboard" en Explorar + modal nombre/descripción
+- [ ] **Paso 2** — Backend: endpoint guardar dashboard (HTML + queries + metadata CLOVER)
+- [ ] **Paso 3** — Detección automática de parámetros de fecha en queries guardadas
+- [ ] **Paso 4** — Página "Mis Dashboards": listado con indicador 📅 si tiene params de fecha
+- [ ] **Paso 5** — Reutilización: date range picker + re-ejecución de queries sin invocar Ivy
+
+#### Siguiente iteración
 - [ ] Modificación de tarjeta por lenguaje natural
 - [ ] Agregar / eliminar paneles
 - [ ] Exportar dashboards completos
