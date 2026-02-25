@@ -307,7 +307,13 @@ timeline
 ### 🔴 URGENTE
 - [ ] **Workspace de Dashboards** — guardar, editar, versionar (UI + backend)
   - 📄 Ver: [Plan de Workspaces](10-workspaces.md)
-- [ ] **Implementar templates y guardado de consultas** — UI completa
+- 🔄 **Templates — save/load completo** — *EN PROGRESO (2026-02-25)*
+  - ✅ Backend API completo (`from-html`, CRUD)
+  - ✅ `SaveTemplateModal` + botón "💾 Guardar" en Explorar
+  - ✅ CLOVER metadata parser + multi-query
+  - ❌ **Pendiente:** página de listado/carga de templates (Workspaces)
+  - ❌ **Pendiente:** edición de parámetros al recargar (`{{fecha}}`, `{{sucursal}}`)
+  - ❌ **Pendiente:** versioning de templates
   - 📄 Ver: [Plan v2 - Ivy-Native](12-plan-templates-v2.md)
   - 📄 Ver: [Plan de Implementación](11-plan-templates.md)
 
