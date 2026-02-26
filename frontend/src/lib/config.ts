@@ -14,6 +14,7 @@ export interface CloverBIConfig {
     gateway_url: string
     gateway_token: string
   }
+  client_logo?: string
 }
 
 // Defaults (fallback si no hay config en DOM)
