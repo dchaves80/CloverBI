@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
+import { getConfig } from '@/lib/config'
 
 interface SidebarProps {
   user: any
@@ -16,6 +17,12 @@ export default function Sidebar({ user, roles, onLogout, darkMode, onToggleDarkM
   const pathname = usePathname()
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
+  const [clientLogo, setClientLogo] = useState<string | null>(null)
+
+  useEffect(() => {
+    const config = getConfig()
+    setClientLogo(config.client_logo || null)
+  }, [])
 
   const hasRole = (roleName: string) => roles.some(r => r.name === roleName)
 
@@ -60,8 +67,14 @@ export default function Sidebar({ user, roles, onLogout, darkMode, onToggleDarkM
       <div className="flex items-center justify-between p-4 border-b border-bg-card">
         {!collapsed && (
           <div className="flex items-center gap-2">
-            <span className="text-2xl">🍀</span>
-            <h1 className="text-lg font-bold text-clover">Clover BI</h1>
+            {clientLogo ? (
+              <img src={clientLogo} alt="Logo" className="h-14 max-w-[180px] object-contain" />
+            ) : (
+              <>
+                <span className="text-2xl">🍀</span>
+                <h1 className="text-lg font-bold text-clover">Clover BI</h1>
+              </>
+            )}
           </div>
         )}
         {collapsed && (
