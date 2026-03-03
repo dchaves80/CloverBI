@@ -113,7 +113,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-emerald-400">🍀 Clover BI</h1>
+          <img src="/images/ask-cloverbi-logo.svg" alt="Clover BI" className="h-16 mx-auto object-contain" />
           <p className="text-gray-500 mt-2">Preguntá, no programes</p>
         </div>
 

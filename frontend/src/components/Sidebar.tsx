@@ -70,10 +70,7 @@ export default function Sidebar({ user, roles, onLogout, darkMode, onToggleDarkM
             {clientLogo ? (
               <img src={clientLogo} alt="Logo" className="h-14 max-w-[180px] object-contain" />
             ) : (
-              <>
-                <span className="text-2xl">🍀</span>
-                <h1 className="text-lg font-bold text-clover">Clover BI</h1>
-              </>
+              <img src="/images/ask-cloverbi-logo.svg" alt="Clover BI" className="h-14 max-w-[180px] object-contain" />
             )}
           </div>
         )}
@@ -82,7 +79,7 @@ export default function Sidebar({ user, roles, onLogout, darkMode, onToggleDarkM
             onClick={() => setCollapsed(false)}
             className="mx-auto text-2xl hover:scale-110 transition-transform"
           >
-            🍀
+            <img src="/images/ask-cloverbi-iso.svg" alt="Clover BI" className="w-8 h-8 object-contain" />
           </button>
         )}
         {!collapsed && (
