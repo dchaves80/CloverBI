@@ -51,9 +51,13 @@ export default function LoginPage() {
         })
         
         try {
-          logger.api('GET', `/api/config?organization_uid=${data.user.organization_uid}`)
+          const environment = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+            ? 'development'
+            : 'production'
+
+          logger.api('GET', `/api/config?organization_uid=${data.user.organization_uid}&environment=${environment}`)
           const configRes = await fetch(
-            `/api/config?organization_uid=${data.user.organization_uid}`,
+            `/api/config?organization_uid=${data.user.organization_uid}&environment=${environment}`,
             {
               headers: {
                 'knockknock': data.token, // 🔥 ATR en el header
