@@ -511,7 +511,7 @@ export async function templatesRoutes(fastify: FastifyInstance) {
     const { name, html, description, base_prompt, org_id, user_id, is_public, tags } = request.body
 
     // Importar parser
-    const { parseCloverMetadata, hasCloverMetadata } = await import('../utils/clover-parser.js')
+    const { parseCloverMetadata, hasCloverMetadata, stripCloverInforme } = await import('../utils/clover-parser.js')
 
     // Validar que tenga metadata CLOVER
     if (!hasCloverMetadata(html)) {
@@ -522,8 +522,11 @@ export async function templatesRoutes(fastify: FastifyInstance) {
     }
 
     try {
+      // Stripear sección de informe antes de guardar
+      const cleanHtml = stripCloverInforme(html)
+
       // Parsear metadata
-      const parsed = parseCloverMetadata(html)
+      const parsed = parseCloverMetadata(cleanHtml)
       
       if (parsed.componentCount === 0) {
         return reply.status(400).send({ 
@@ -558,7 +561,7 @@ export async function templatesRoutes(fastify: FastifyInstance) {
         name,
         description: description || null,
         base_prompt: base_prompt || null,
-        template_html: html,
+        template_html: cleanHtml,
         binding_schema: bindingSchema,
         queries: queriesJson,
         is_public: is_public ? 1 : 0,

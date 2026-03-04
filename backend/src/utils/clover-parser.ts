@@ -70,3 +70,23 @@ export function countCloverComponents(html: string): number {
   const matches = html.match(/<!--CLOVER:BEGIN/g)
   return matches ? matches.length : 0
 }
+
+/**
+ * Elimina la sección de informe del HTML antes de guardar como template.
+ * El informe se muestra al explorar pero no se persiste en el template.
+ * 
+ * Formato esperado:
+ * <!--CLOVER:INFORME-->
+ * <div class="informe">...</div>
+ * <!--CLOVER:INFORME:END-->
+ */
+export function stripCloverInforme(html: string): string {
+  return html.replace(/<!--CLOVER:INFORME-->[\s\S]*?<!--CLOVER:INFORME:END-->/g, '').trim()
+}
+
+/**
+ * Verifica si el HTML tiene sección de informe marcada
+ */
+export function hasCloverInforme(html: string): boolean {
+  return /<!--CLOVER:INFORME-->/.test(html)
+}
