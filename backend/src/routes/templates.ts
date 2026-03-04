@@ -395,10 +395,10 @@ export async function templatesRoutes(fastify: FastifyInstance) {
   // ============== EXECUTE TEMPLATE ==============
   fastify.post<{
     Params: { id: string }
-    Body: { parameters?: Record<string, any> }
+    Body: { params?: Record<string, string> }
   }>('/api/templates/:id/execute', {
     schema: {
-      description: 'Ejecutar un template con parámetros (rehidratar con data fresca)',
+      description: 'Re-ejecutar las queries de un template con parámetros frescos (sin Ivy)',
       tags: ['templates'],
       params: {
         type: 'object',
@@ -409,9 +409,10 @@ export async function templatesRoutes(fastify: FastifyInstance) {
       body: {
         type: 'object',
         properties: {
-          parameters: { 
-            type: 'object', 
-            description: 'Parámetros para el template (ej: {date_range: {...}, sucursal: "all"})' 
+          params: {
+            type: 'object',
+            additionalProperties: { type: 'string' },
+            description: 'Parámetros de sustitución (ej: { fecha_inicio: "2026-03-01", fecha_fin: "2026-03-03" })',
           },
         },
       },
@@ -421,38 +422,94 @@ export async function templatesRoutes(fastify: FastifyInstance) {
           properties: {
             success: { type: 'boolean' },
             template_id: { type: 'string' },
-            parameters: { type: 'object' },
             html: { type: 'string' },
-            message: { type: 'string' },
+            results: { type: 'object', additionalProperties: true },
           },
         },
       },
     },
   }, async (request, reply) => {
     const { id } = request.params
-    const { parameters } = request.body
+    const { params = {} } = request.body
+
+    // Importar dinámicamente
+    const { clientQuery, hasClientDbConfig } = await import('../services/client-db.js')
+    const { parseCloverMetadata } = await import('../utils/clover-parser.js')
+    const { buildFreshHtml } = await import('../utils/html-builder.js')
+
+    if (!hasClientDbConfig()) {
+      return reply.status(503).send({
+        error: 'DB del cliente no configurada',
+        hint: 'Definí CLIENT_DB_HOST, CLIENT_DB_USER, CLIENT_DB_NAME en las variables de entorno del backend',
+      })
+    }
 
     try {
-      const templates = await query<Template>(
-        `SELECT * FROM templates WHERE id = @id`,
-        { id }
-      )
-
-      if (templates.length === 0) {
+      // 1. Cargar template
+      const rows = await query<Template>(`SELECT * FROM templates WHERE id = @id`, { id })
+      if (rows.length === 0) {
         return reply.status(404).send({ error: 'Template no encontrado' })
       }
 
-      const template = templates[0]
-      
-      // TODO: Integrar con Ivy para rehidratar el template
+      const template = rows[0]
+      const storedQueries: Record<string, string> = template.queries
+        ? JSON.parse(template.queries as unknown as string)
+        : {}
+
+      if (Object.keys(storedQueries).length === 0) {
+        return reply.status(400).send({ error: 'El template no tiene queries guardadas' })
+      }
+
+      // 2. Sustituir placeholders en cada query
+      function substitutePlaceholders(sql: string, values: Record<string, string>): string {
+        return sql.replace(/\{\{(\w+)\}\}/g, (_, key) => {
+          if (values[key] === undefined) {
+            throw new Error(`Parámetro faltante: {{${key}}}`)
+          }
+          return values[key]
+        })
+      }
+
+      // 3. Ejecutar queries
+      const results: Record<string, any[]> = {}
+      const errors: Record<string, string> = {}
+
+      for (const [queryId, sqlTemplate] of Object.entries(storedQueries)) {
+        try {
+          const sql = substitutePlaceholders(sqlTemplate, params)
+          fastify.log.info(`Ejecutando query "${queryId}": ${sql.substring(0, 80)}...`)
+          results[queryId] = await clientQuery(sql)
+        } catch (err: any) {
+          fastify.log.error(`Error en query "${queryId}": ${err.message}`)
+          errors[queryId] = err.message
+          results[queryId] = []
+        }
+      }
+
+      // 4. Parsear componentes del HTML guardado para saber tipo de cada query
+      const parsed = template.template_html ? parseCloverMetadata(template.template_html) : { components: [], queries: {}, componentCount: 0 }
+      const componentTypeMap: Record<string, string> = {}
+      for (const c of parsed.components) {
+        componentTypeMap[c.id] = c.type
+      }
+
+      // 5. Generar HTML fresco con los resultados
+      const html = buildFreshHtml({
+        name: template.name,
+        params,
+        results,
+        errors,
+        componentTypeMap,
+        queryOrder: Object.keys(storedQueries),
+      })
+
       return {
         success: true,
         template_id: id,
-        parameters,
-        message: 'Ejecución de template - TODO: integrar con Ivy',
-        html: template.template_html,
-        binding_schema: template.binding_schema ? JSON.parse(template.binding_schema) : null,
+        html,
+        results,
       }
+
     } catch (error: any) {
       fastify.log.error(error)
       return reply.status(500).send({ error: 'Error ejecutando template', details: error.message })

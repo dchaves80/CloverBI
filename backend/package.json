@@ -13,9 +13,13 @@
     "@fastify/jwt": "^9.0.0",
     "@fastify/swagger": "^9.7.0",
     "@fastify/swagger-ui": "^5.2.5",
+    "@types/mysql": "^2.15.27",
+    "@types/pg": "^8.18.0",
     "dotenv": "^16.4.0",
     "fastify": "^5.2.0",
     "mssql": "^12.2.0",
+    "mysql2": "^3.18.2",
+    "pg": "^8.19.0",
     "ws": "^8.18.0"
   },
   "devDependencies": {

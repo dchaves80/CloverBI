@@ -21,6 +21,16 @@ interface Template {
 
 type View = 'list' | 'viewer'
 
+// Helpers de fecha
+function today(): string {
+  return new Date().toISOString().split('T')[0]
+}
+function daysAgo(n: number): string {
+  const d = new Date()
+  d.setDate(d.getDate() - n)
+  return d.toISOString().split('T')[0]
+}
+
 export default function WorkspacesPage() {
   const [templates, setTemplates] = useState<Template[]>([])
   const [loading, setLoading] = useState(true)
@@ -30,6 +40,13 @@ export default function WorkspacesPage() {
   const [deleting, setDeleting] = useState<string | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+
+  // Execute state
+  const [fechaInicio, setFechaInicio] = useState(daysAgo(30))
+  const [fechaFin, setFechaFin] = useState(today())
+  const [executing, setExecuting] = useState(false)
+  const [executeError, setExecuteError] = useState<string | null>(null)
+  const [freshHtml, setFreshHtml] = useState<string | null>(null)
 
   const fetchTemplates = useCallback(async () => {
     setLoading(true)
@@ -82,12 +99,55 @@ export default function WorkspacesPage() {
 
   const handleOpen = (template: Template) => {
     setActiveTemplate(template)
+    setFreshHtml(null)
+    setExecuteError(null)
     setView('viewer')
   }
 
   const handleBack = () => {
     setView('list')
     setActiveTemplate(null)
+    setFreshHtml(null)
+    setExecuteError(null)
+  }
+
+  const handleExecute = async () => {
+    if (!activeTemplate) return
+    setExecuting(true)
+    setExecuteError(null)
+
+    try {
+      const config = getConfig()
+      const token = getAuthToken()
+
+      const res = await fetch(`${config.backend.url}/api/templates/${activeTemplate.id}/execute`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { knockknock: token }),
+        },
+        body: JSON.stringify({
+          params: {
+            fecha_inicio: fechaInicio,
+            fecha_fin: fechaFin,
+          },
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || `Error ${res.status}`)
+      }
+
+      setFreshHtml(data.html)
+      logger.info('Template ejecutado', { component: 'Workspaces', data: { id: activeTemplate.id } })
+    } catch (err: any) {
+      setExecuteError(err.message || 'Error ejecutando el dashboard')
+      logger.error('Error ejecutando template', { component: 'Workspaces', data: err })
+    } finally {
+      setExecuting(false)
+    }
   }
 
   const handleDeleteClick = (id: string) => {
@@ -148,9 +208,14 @@ export default function WorkspacesPage() {
 
   // ============== VIEWER ==============
   if (view === 'viewer' && activeTemplate) {
+    const hasParams = activeTemplate.binding_schema?.params &&
+      Object.keys(activeTemplate.binding_schema.params).length > 0
+    const displayHtml = freshHtml ?? activeTemplate.template_html
+
     return (
       <AppLayout requireRole="data_analyst">
         <div className="h-full flex flex-col">
+
           {/* Viewer Header */}
           <header className="bg-bg-secondary border-b border-bg-card px-6 py-3 flex items-center gap-4 flex-shrink-0">
             <button
@@ -174,20 +239,15 @@ export default function WorkspacesPage() {
             <div className="flex items-center gap-2 flex-shrink-0">
               {activeTemplate.tags?.length > 0 &&
                 activeTemplate.tags.slice(0, 3).map((tag) => (
-                  <span
-                    key={tag}
-                    className="px-2 py-1 bg-clover/20 text-clover rounded-full text-xs hidden sm:block"
-                  >
+                  <span key={tag} className="px-2 py-1 bg-clover/20 text-clover rounded-full text-xs hidden sm:block">
                     {tag}
                   </span>
                 ))}
-
               {activeTemplate.queries && Object.keys(activeTemplate.queries).length > 0 && (
                 <span className="text-xs text-text-muted bg-bg-card px-3 py-1 rounded-full hidden md:block">
                   🔍 {Object.keys(activeTemplate.queries).length} queries
                 </span>
               )}
-
               <button
                 onClick={() => handleDeleteClick(activeTemplate.id)}
                 className="p-2 rounded-lg text-text-muted hover:text-red-400 hover:bg-red-500/10 transition"
@@ -198,11 +258,95 @@ export default function WorkspacesPage() {
             </div>
           </header>
 
+          {/* DateRangePanel — solo si el template tiene params */}
+          {hasParams && (
+            <div className="bg-bg-primary border-b border-bg-card px-6 py-3 flex-shrink-0">
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="text-xs text-text-muted font-medium uppercase tracking-wide">Período</span>
+
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-text-muted">Desde</label>
+                  <input
+                    type="date"
+                    value={fechaInicio}
+                    onChange={e => setFechaInicio(e.target.value)}
+                    className="px-3 py-1.5 bg-bg-secondary border border-bg-card rounded-lg text-text-primary text-sm focus:outline-none focus:border-clover transition"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-text-muted">Hasta</label>
+                  <input
+                    type="date"
+                    value={fechaFin}
+                    onChange={e => setFechaFin(e.target.value)}
+                    className="px-3 py-1.5 bg-bg-secondary border border-bg-card rounded-lg text-text-primary text-sm focus:outline-none focus:border-clover transition"
+                  />
+                </div>
+
+                {/* Shortcuts */}
+                <div className="flex items-center gap-1">
+                  {[
+                    { label: '7d', days: 7 },
+                    { label: '30d', days: 30 },
+                    { label: '90d', days: 90 },
+                  ].map(({ label, days }) => (
+                    <button
+                      key={label}
+                      onClick={() => { setFechaInicio(daysAgo(days)); setFechaFin(today()) }}
+                      className="px-2 py-1 text-xs bg-bg-card hover:bg-border text-text-muted hover:text-text-primary rounded transition"
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  onClick={handleExecute}
+                  disabled={executing || !fechaInicio || !fechaFin}
+                  className="px-4 py-1.5 bg-clover hover:bg-clover-dark disabled:opacity-50 text-white text-sm font-medium rounded-lg transition flex items-center gap-2 ml-2"
+                >
+                  {executing ? (
+                    <><span className="animate-spin">⏳</span> Ejecutando...</>
+                  ) : (
+                    <>⚡ Ejecutar</>
+                  )}
+                </button>
+
+                {freshHtml && (
+                  <button
+                    onClick={() => setFreshHtml(null)}
+                    className="text-xs text-text-muted hover:text-text-primary transition"
+                    title="Ver versión guardada"
+                  >
+                    ↩ Original
+                  </button>
+                )}
+
+                {executeError && (
+                  <span className="text-xs text-red-400 bg-red-500/10 px-3 py-1.5 rounded-lg">
+                    ⚠️ {executeError}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Iframe */}
-          <div className="flex-1 overflow-hidden">
-            {activeTemplate.template_html ? (
+          <div className="flex-1 overflow-hidden relative">
+            {executing && (
+              <div className="absolute inset-0 bg-bg-primary/70 flex items-center justify-center z-10">
+                <div className="text-center">
+                  <div className="text-5xl mb-3 animate-bounce">🍀</div>
+                  <p className="text-text-secondary text-sm">Ejecutando queries...</p>
+                </div>
+              </div>
+            )}
+
+            {displayHtml ? (
               <iframe
-                srcDoc={activeTemplate.template_html}
+                key={freshHtml ? 'fresh' : 'stored'}
+                srcDoc={displayHtml}
                 className="w-full h-full border-0"
                 sandbox="allow-scripts"
                 title={activeTemplate.name}
