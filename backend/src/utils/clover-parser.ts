@@ -157,6 +157,22 @@ export function stripCloverParams(html: string): string {
 }
 
 /**
+ * Elimina la clase "alert" de los kpi-card al guardar el template.
+ * Ivy agrega "alert" cuando un valor es 0 o crítico, pero eso es estado
+ * momentáneo — no debe persistir en el template (quedaría rojo siempre).
+ */
+export function stripKpiAlertClass(html: string): string {
+  return html.replace(/<div([^>]*\bkpi-card\b[^>]*)>/g, (_match, attrs: string) => {
+    const cleaned = attrs
+      .replace(/\s*\balert\b\s*/g, ' ')  // sacar la palabra "alert"
+      .replace(/\s+/g, ' ')             // normalizar espacios múltiples
+      .replace(/ "/g, '"')              // sacar espacio antes del cierre de class
+      .trimEnd()
+    return `<div${cleaned}>`
+  })
+}
+
+/**
  * Elimina todos los <div class="alert-box"> del HTML guardado.
  * Estos divs contienen análisis hardcodeado de Ivy para un período específico
  * y no deben persistir en el template (quedan stale al re-ejecutar con otras fechas).

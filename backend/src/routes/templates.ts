@@ -569,7 +569,7 @@ export async function templatesRoutes(fastify: FastifyInstance) {
     const { name, html, description, base_prompt, org_id, user_id, is_public, tags } = request.body
 
     // Importar parser
-    const { parseCloverMetadata, hasCloverMetadata, stripCloverInforme, parseCloverParams, stripCloverParams, stripAlertBoxes } = await import('../utils/clover-parser.js')
+    const { parseCloverMetadata, hasCloverMetadata, stripCloverInforme, parseCloverParams, stripCloverParams, stripAlertBoxes, stripKpiAlertClass } = await import('../utils/clover-parser.js')
 
     // Validar que tenga metadata CLOVER
     if (!hasCloverMetadata(html)) {
@@ -583,8 +583,8 @@ export async function templatesRoutes(fastify: FastifyInstance) {
       // 1. Extraer params ANTES de stripear (están en el HTML original)
       const params = parseCloverParams(html)
 
-      // 2. Limpiar: sacar informe, CLOVER:PARAMS y alert-boxes (quedan stale al re-ejecutar)
-      const cleanHtml = stripAlertBoxes(stripCloverParams(stripCloverInforme(html)))
+      // 2. Limpiar: sacar informe, CLOVER:PARAMS, alert-boxes y clase alert en kpi-cards (quedan stale al re-ejecutar)
+      const cleanHtml = stripKpiAlertClass(stripAlertBoxes(stripCloverParams(stripCloverInforme(html))))
 
       // Parsear metadata de componentes
       const parsed = parseCloverMetadata(cleanHtml)
