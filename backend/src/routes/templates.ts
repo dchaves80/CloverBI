@@ -497,7 +497,7 @@ export async function templatesRoutes(fastify: FastifyInstance) {
           if (blockStart !== -1) {
             const endIdx = template.template_html.indexOf('<!--CLOVER:END-->', blockStart)
             const block = template.template_html.slice(blockStart, endIdx !== -1 ? endIdx + 20 : blockStart + 3000)
-            const chartTypeMatch = block.match(/type:\s*['"]([a-z]+)['"]/)
+            const chartTypeMatch = block.match(/new Chart\(\s*\w+\s*,\s*\{\s*type:\s*['"]([a-z]+)['"]/)
             if (chartTypeMatch && chartTypeMatch[1] !== 'chart') {
               componentTypeMap[c.id] = `chart:${chartTypeMatch[1]}`
             }
