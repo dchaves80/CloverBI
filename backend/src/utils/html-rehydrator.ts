@@ -34,10 +34,12 @@ function formatValue(val: any): string {
     // Fecha ISO
     if (/^\d{4}-\d{2}-\d{2}/.test(val)) return formatDate(val)
     // String numérico → formatear como número
-    const n = parseFloat(val)
-    if (!isNaN(n) && String(n) === val.trim()) {
-      if (Number.isInteger(n)) return n.toLocaleString('es-AR')
-      return n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    if (/^-?\d+(\.\d+)?$/.test(val.trim())) {
+      const n = parseFloat(val)
+      if (!isNaN(n)) {
+        if (Number.isInteger(n)) return n.toLocaleString('es-AR')
+        return n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      }
     }
   }
   return String(val)
