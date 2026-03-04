@@ -155,3 +155,32 @@ export function hasCloverParams(html: string): boolean {
 export function stripCloverParams(html: string): string {
   return html.replace(/<!--CLOVER:PARAMS-->[\s\S]*?<!--CLOVER:PARAMS:END-->/g, '').trim()
 }
+
+/**
+ * Elimina todos los <div class="alert-box"> del HTML guardado.
+ * Estos divs contienen análisis hardcodeado de Ivy para un período específico
+ * y no deben persistir en el template (quedan stale al re-ejecutar con otras fechas).
+ * Usa counter de profundidad para manejar divs anidados correctamente.
+ */
+export function stripAlertBoxes(html: string): string {
+  const re = /<div[^>]*\balert-box\b[^>]*>/g
+  let result = html
+  let match: RegExpExecArray | null
+  while ((match = re.exec(result)) !== null) {
+    const start = match.index
+    let depth = 1
+    let i = start + match[0].length
+    while (i < result.length && depth > 0) {
+      const openTag = result.slice(i).match(/^<div[^>]*>/)
+      const closeTag = result.slice(i).match(/^<\/div>/)
+      if (openTag) { depth++; i += openTag[0].length }
+      else if (closeTag) { depth--; i += closeTag[0].length }
+      else i++
+    }
+    // Saltear whitespace después del tag de cierre
+    while (i < result.length && (result[i] === ' ' || result[i] === '\n' || result[i] === '\r' || result[i] === '\t')) i++
+    result = result.slice(0, start) + result.slice(i)
+    re.lastIndex = 0
+  }
+  return result
+}
