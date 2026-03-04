@@ -1,6 +1,6 @@
 # 📋 Plan: Templates con Parámetros Dinámicos de Fecha
 
-> **Estado:** 🔜 Planificado  
+> **Estado:** 🚧 En progreso — Fase 1 ✅ Fase 2 ✅  
 > **Autor:** Cloe Cloverfield  
 > **Fecha:** 2026-03-03  
 
@@ -18,12 +18,13 @@ Permitir que los templates guardados sean **reutilizables con rangos de fecha di
 
 ---
 
-## Fase 1 — SOUL de Ivy
-- [ ] Definir cuándo Ivy usa placeholders: cuando el dashboard involucra rangos de tiempo (últimos N días, mes específico, trimestre, etc.)
-- [ ] Agregar al SOUL el formato `CLOVER:PARAMS` — bloque al inicio del HTML
-- [ ] Agregar instrucción: queries con fechas deben usar `{{fecha_inicio}}` / `{{fecha_fin}}` en lugar de fechas hardcodeadas
-- [ ] Actualizar el ejemplo de estructura completa en el SOUL
-- [ ] Reiniciar Ivy y probar que genera placeholders correctamente
+## Fase 1 — SOUL de Ivy ✅
+- [x] Definir cuándo Ivy usa placeholders: cuando el dashboard involucra rangos de tiempo (últimos N días, mes específico, trimestre, etc.)
+- [x] Agregar al SOUL el formato `CLOVER:PARAMS` — bloque al inicio del HTML
+- [x] Agregar instrucción: queries con fechas deben usar `{{fecha_inicio}}` / `{{fecha_fin}}` en lugar de fechas hardcodeadas
+- [x] Agregar CONCEPTO FUNDAMENTAL: dashboards son templates reutilizables (clave para que el modelo entienda el propósito)
+- [x] Actualizar el ejemplo de estructura completa en el SOUL
+- [x] Reiniciar Ivy y probar que genera placeholders correctamente
 
 **Formato CLOVER:PARAMS:**
 ```html
@@ -41,12 +42,12 @@ WHERE fecha BETWEEN '{{fecha_inicio}}' AND '{{fecha_fin}}'
 
 ---
 
-## Fase 2 — Backend Parser
+## Fase 2 — Backend Parser ✅
 
-- [ ] Agregar función `parseCloverParams(html)` → detecta y extrae el bloque `CLOVER:PARAMS`
-- [ ] Retorna `{ fecha_inicio: { type: 'date', label: 'Desde', default: '...' }, ... }`
-- [ ] Guardar params en columna `binding_schema` de la tabla `templates` (ya existe)
-- [ ] Agregar `stripCloverParams()` → limpia el bloque de params del HTML guardado (metadata interna, no visual)
+- [x] Agregar función `parseCloverParams(html)` → detecta y extrae el bloque `CLOVER:PARAMS`
+- [x] Retorna `{ fecha_inicio: { type: 'date', label: 'Desde', default: '...' }, ... }`
+- [x] Guardar params en columna `binding_schema` de la tabla `templates` (ya existe)
+- [x] Agregar `stripCloverParams()` → limpia el bloque de params del HTML guardado (metadata interna, no visual)
 
 **Estructura del binding_schema:**
 ```json
