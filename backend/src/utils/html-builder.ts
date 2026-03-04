@@ -94,6 +94,12 @@ function renderChart(id: string, rows: any[], chartType: string = "bar"): string
     return `<div class="section"><h3 class="section-title">${formatLabel(id)}</h3><div class="empty">Sin datos</div></div>`
   }
 
+  // Si el chart no es de tipo línea y hay menos de 2 filas, degradar a tabla
+  const needsMultipleRows = chartType !== 'line'
+  if (needsMultipleRows && rows.length < 2) {
+    return renderTable(id, rows)
+  }
+
   const cols = Object.keys(rows[0])
   if (cols.length < 2) return renderTable(id, rows)
 
