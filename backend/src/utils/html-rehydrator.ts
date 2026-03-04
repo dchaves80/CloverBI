@@ -279,7 +279,9 @@ function injectExecutionBanner(html: string, params: Record<string, string>): st
   // Intentar inyectar dentro de .container, sino después de <body>
   const containerMatch = html.match(/<div[^>]*class="[^"]*\bcontainer\b[^"]*"/)
   if (containerMatch && containerMatch.index !== undefined) {
-    const insertAfter = containerMatch.index + containerMatch[0].length
+    // Buscar el > de cierre del tag (no el fin del atributo class)
+    const tagClose = html.indexOf('>', containerMatch.index + containerMatch[0].length)
+    const insertAfter = tagClose !== -1 ? tagClose + 1 : containerMatch.index + containerMatch[0].length
     return html.slice(0, insertAfter) + '\n' + banner + html.slice(insertAfter)
   }
 
