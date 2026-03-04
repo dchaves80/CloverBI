@@ -67,6 +67,54 @@ fastify.get('/api/config', {
   }
 })
 
+// ============== ENV ENDPOINT ==============
+fastify.get('/api/env', {
+  schema: {
+    description: 'Listar todas las variables de entorno del backend (passwords enmascaradas)',
+    tags: ['health'],
+  },
+}, async () => {
+  const mask = (val?: string) => {
+    if (!val) return '❌ no configurada'
+    if (val.length <= 4) return '✅ ****'
+    return `✅ ${val.slice(0, 2)}${'*'.repeat(Math.min(val.length - 4, 8))}${val.slice(-2)}`
+  }
+  const show = (val?: string) => val ? `✅ ${val}` : '❌ no configurada'
+
+  return {
+    server: {
+      PORT: show(process.env.PORT),
+      NODE_ENV: show(process.env.NODE_ENV),
+    },
+    cloverbi_db: {
+      description: 'Base de datos interna de CloverBI (templates, usuarios)',
+      DB_SERVER:   show(process.env.DB_SERVER),
+      DB_PORT:     show(process.env.DB_PORT),
+      DB_USER:     show(process.env.DB_USER),
+      DB_PASSWORD: mask(process.env.DB_PASSWORD),
+      DB_NAME:     show(process.env.DB_NAME),
+    },
+    client_db: {
+      description: 'Base de datos del cliente (donde viven los datos de los dashboards)',
+      CLIENT_DB_TYPE: show(process.env.CLIENT_DB_TYPE),
+      CLIENT_DB_HOST: show(process.env.CLIENT_DB_HOST),
+      CLIENT_DB_PORT: show(process.env.CLIENT_DB_PORT),
+      CLIENT_DB_USER: show(process.env.CLIENT_DB_USER),
+      CLIENT_DB_PASS: mask(process.env.CLIENT_DB_PASS),
+      CLIENT_DB_NAME: show(process.env.CLIENT_DB_NAME),
+      status: (process.env.CLIENT_DB_HOST && process.env.CLIENT_DB_USER && process.env.CLIENT_DB_NAME)
+        ? '✅ configurada'
+        : '❌ incompleta — falta CLIENT_DB_HOST, CLIENT_DB_USER o CLIENT_DB_NAME',
+    },
+    ivy: {
+      description: 'Agente Ivy (WebSocket)',
+      CLOVER_URL:   show(process.env.CLOVER_URL),
+      CLOVER_TOKEN: mask(process.env.CLOVER_TOKEN),
+      PUBLIC_CLOVER_URL: show(process.env.PUBLIC_CLOVER_URL),
+    },
+  }
+})
+
 // ============== QUERY ENDPOINT ==============
 fastify.post<{
   Body: { prompt: string; darkMode?: boolean }
