@@ -104,9 +104,26 @@ function rehydrateTable(html: string, id: string, rows: any[]): string {
 
 // ─── Chart ────────────────────────────────────────────────────────
 
-function rehydrateChart(html: string, id: string, rows: any[]): string {
+const CHART_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6']
+
+function buildInlineTable(rows: any[]): string {
+  const cols = Object.keys(rows[0])
+  const header = cols.map(c => `<th style="padding:6px 10px;text-align:left;color:#94a3b8;font-size:0.8rem;border-bottom:1px solid #475569">${escapeHtml(c)}</th>`).join('')
+  const body = rows.map(row =>
+    `<tr>${cols.map(c => `<td style="padding:6px 10px;color:#cbd5e1;font-size:0.82rem;border-bottom:1px solid #1e293b">${escapeHtml(formatValue(row[c]))}</td>`).join('')}</tr>`
+  ).join('')
+  return `<div style="overflow-x:auto;margin-top:8px"><table style="width:100%;border-collapse:collapse"><thead><tr>${header}</tr></thead><tbody>${body}</tbody></table></div>`
+}
+
+function removeChartScript(html: string, canvasId: string): string {
+  // Elimina el bloque new Chart(document.getElementById('canvasId'), {...}) del script
+  const re = new RegExp(`new Chart\\(\\s*document\\.getElementById\\(['"']${escapeRegex(canvasId)}['"']\\)[\\s\\S]*?\\}\\s*\\)\\s*;?`, '')
+  return html.replace(re, `/* chart ${canvasId} degradado a tabla */`)
+}
+
+function rehydrateChart(html: string, id: string, rows: any[], chartType: string = 'bar'): string {
   const bounds = findBlockBounds(html, 'chart', id)
-  if (!bounds || rows.length === 0) return html
+  if (!bounds) return html
   const [blockStart, blockEnd] = bounds
 
   const block = html.slice(blockStart, blockEnd)
@@ -114,60 +131,106 @@ function rehydrateChart(html: string, id: string, rows: any[]): string {
   if (!canvasMatch) return html
   const canvasId = canvasMatch[1]
 
+  // Sin datos
+  if (rows.length === 0) return html
+
   const cols = Object.keys(rows[0])
   const labelKey = cols[0]
   const valueKeys = cols.slice(1)
   if (valueKeys.length === 0) return html
 
-  const newLabels = JSON.stringify(rows.map(r => formatValue(r[labelKey])))
-
-  let result = html
-
-  // Encontrar el script de este canvas en el HTML completo
-  const scriptSearchRe = new RegExp(`getElementById\\(['"]${escapeRegex(canvasId)}['"]\\)`)
-  const scriptMatch = result.match(scriptSearchRe)
-  if (!scriptMatch || scriptMatch.index === undefined) return html
-  const scriptIdx = scriptMatch.index
-
-  // Buscar el bloque data: { ... } dentro del constructor Chart
-  const dataBlockIdx = result.indexOf('data:', scriptIdx)
-  if (dataBlockIdx === -1 || dataBlockIdx > scriptIdx + 3000) return html
-
-  // 1. Reemplazar labels: [...]
-  const labelsKeyIdx = result.indexOf('labels:', dataBlockIdx)
-  if (labelsKeyIdx === -1 || labelsKeyIdx > dataBlockIdx + 1000) return html
-
-  const labelsArrStart = result.indexOf('[', labelsKeyIdx)
-  if (labelsArrStart === -1) return html
-  const labelsArrEnd = findArrayEnd(result, labelsArrStart)
-  if (labelsArrEnd === -1) return html
-
-  result = result.slice(0, labelsArrStart) + newLabels + result.slice(labelsArrEnd)
-
-  // 2. Reemplazar data: [...] de cada dataset
-  // Re-encontrar el script después del reemplazo
-  const scriptMatch2 = result.match(new RegExp(`getElementById\\(['"]${escapeRegex(canvasId)}['"]\\)`))
-  if (!scriptMatch2 || scriptMatch2.index === undefined) return result
-
-  const datasetsIdx = result.indexOf('datasets:', scriptMatch2.index)
-  if (datasetsIdx === -1) return result
-
-  let searchFrom = datasetsIdx
-  for (let i = 0; i < valueKeys.length; i++) {
-    const newData = JSON.stringify(rows.map(r => r[valueKeys[i]]))
-    const dataIdx = result.indexOf('data:', searchFrom + 1)
-    if (dataIdx === -1 || dataIdx > searchFrom + 5000) break
-
-    const dataArrStart = result.indexOf('[', dataIdx)
-    if (dataArrStart === -1) break
-    const dataArrEnd = findArrayEnd(result, dataArrStart)
-    if (dataArrEnd === -1) break
-
-    result = result.slice(0, dataArrStart) + newData + result.slice(dataArrEnd)
-    searchFrom = dataArrStart + newData.length
+  // < 2 filas y no es line → degrade a tabla inline
+  if (chartType !== 'line' && rows.length < 2) {
+    const tableHtml = buildInlineTable(rows)
+    // Reemplazar el canvas (y su contenedor si existe) por la tabla
+    let newBlock = block.replace(/<div[^>]*class="[^"]*chart-container[^"]*"[\s\S]*?<\/div>/, tableHtml)
+    if (newBlock === block) {
+      newBlock = block.replace(/<canvas[^>]*><\/canvas>/, tableHtml)
+    }
+    let result = html.slice(0, blockStart) + newBlock + html.slice(blockEnd)
+    return removeChartScript(result, canvasId)
   }
 
-  return result
+  // ── Reemplazar el bloque entero new Chart(...) con código fresco ──
+  // Esto evita bugs cuando el chart original usa variables (semanalData.map) en vez de arrays literales
+
+  const isRadial = chartType === 'doughnut' || chartType === 'pie'
+  const isHorizontal = chartType === 'bar-horizontal'
+  const realType = isHorizontal ? 'bar' : chartType
+
+  const labels = rows.map(r => formatValue(r[labelKey]))
+  const datasets = valueKeys.map((key, i) => {
+    const color = CHART_COLORS[i % CHART_COLORS.length]
+    const data = rows.map(r => {
+      const v = r[key]
+      if (v === null || v === undefined) return null
+      const n = parseFloat(String(v))
+      return isNaN(n) ? v : n
+    })
+    return {
+      label: key,
+      data,
+      backgroundColor: isRadial
+        ? CHART_COLORS.map(c => c + 'b3')
+        : color + '99',
+      borderColor: isRadial ? CHART_COLORS : color,
+      borderWidth: 2,
+      ...(realType === 'line' ? { tension: 0.3, fill: true } : {}),
+    }
+  })
+
+  const scalesConfig = isRadial ? '' : `
+      scales: {
+        ${isHorizontal ? 'y' : 'x'}: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
+        ${isHorizontal ? 'x' : 'y'}: { beginAtZero: true, ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }
+      }`
+
+  const freshScript = `new Chart(document.getElementById('${canvasId}'), {
+    type: '${realType}',
+    data: {
+      labels: ${JSON.stringify(labels)},
+      datasets: ${JSON.stringify(datasets)}
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      ${isHorizontal ? "indexAxis: 'y'," : ''}
+      plugins: {
+        legend: { labels: { color: '#e2e8f0' }, display: ${isRadial || valueKeys.length > 1 ? 'true' : 'false'} }
+      },${scalesConfig}
+    }
+  })`
+
+  // Encontrar y reemplazar el bloque new Chart(...) completo
+  const chartCallRe = new RegExp(`new Chart\\(\\s*document\\.getElementById\\(['"]${escapeRegex(canvasId)}['"]\\)`)
+  const chartCallMatch = html.match(chartCallRe)
+  if (!chartCallMatch || chartCallMatch.index === undefined) return html
+
+  const chartStart = chartCallMatch.index
+  let depth = 0
+  let chartEnd = -1
+  for (let i = chartStart; i < html.length; i++) {
+    if (html[i] === '{') depth++
+    else if (html[i] === '}') {
+      depth--
+      if (depth === 0) {
+        // Buscar el ); de cierre
+        let j = i + 1
+        while (j < html.length && (html[j] === ' ' || html[j] === '\n' || html[j] === '\r')) j++
+        if (html[j] === ')') {
+          j++
+          if (html[j] === ';') j++
+          chartEnd = j
+        } else {
+          chartEnd = i + 1
+        }
+        break
+      }
+    }
+  }
+
+  if (chartEnd === -1) return html
+  return html.slice(0, chartStart) + freshScript + html.slice(chartEnd)
 }
 
 // ─── Error ────────────────────────────────────────────────────────
@@ -241,7 +304,7 @@ export function rehydrateHtml(
       const rows = results[component.id] || []
       switch (component.type) {
         case 'kpi':   html = rehydrateKpi(html, component.id, rows); break
-        case 'chart': html = rehydrateChart(html, component.id, rows); break
+        case 'chart': html = rehydrateChart(html, component.id, rows, component.chartType || 'bar'); break
         case 'table': html = rehydrateTable(html, component.id, rows); break
       }
     }
