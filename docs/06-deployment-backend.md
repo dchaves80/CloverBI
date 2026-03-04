@@ -90,6 +90,17 @@ docker run -d \
   -e PORT=3002 \
   -e CLOVER_URL=wss://[DOMINIO_IVY]/ \
   -e CLOVER_TOKEN=[CLOVER_TOKEN] \
+  -e DB_SERVER=[DB_SERVER] \
+  -e DB_PORT=[DB_PORT] \
+  -e DB_USER=[DB_USER] \
+  -e DB_PASSWORD=[DB_PASSWORD] \
+  -e DB_NAME=[DB_NAME] \
+  -e CLIENT_DB_TYPE=[postgresql|mssql|mysql|mariadb] \
+  -e CLIENT_DB_HOST=[CLIENT_DB_HOST] \
+  -e CLIENT_DB_PORT=[CLIENT_DB_PORT] \
+  -e CLIENT_DB_USER=[CLIENT_DB_USER] \
+  -e CLIENT_DB_PASS=[CLIENT_DB_PASS] \
+  -e CLIENT_DB_NAME=[CLIENT_DB_NAME] \
   cloverbi/backend:latest
 ```
 
@@ -104,6 +115,17 @@ docker run -d \
 | `PORT` | No | Puerto del servidor | `3002` |
 | `CLOVER_URL` | **Sí** | WebSocket URL del Ivy/Clover Agent | - |
 | `CLOVER_TOKEN` | **Sí** | Gateway Token del agente | - |
+| `DB_SERVER` | **Sí** | Host del SQL Server interno (CloverBI DB) | - |
+| `DB_PORT` | **Sí** | Puerto del SQL Server interno | `2433` |
+| `DB_USER` | **Sí** | Usuario SQL Server interno | - |
+| `DB_PASSWORD` | **Sí** | Password SQL Server interno | - |
+| `DB_NAME` | **Sí** | Nombre de la base CloverBI | `CloverBI` |
+| `CLIENT_DB_TYPE` | **Sí** | Tipo de DB del cliente (`postgresql`, `mssql`, `mysql`, `mariadb`) | - |
+| `CLIENT_DB_HOST` | **Sí** | Host de la DB del cliente | - |
+| `CLIENT_DB_PORT` | **Sí** | Puerto de la DB del cliente | - |
+| `CLIENT_DB_USER` | **Sí** | Usuario de la DB del cliente | - |
+| `CLIENT_DB_PASS` | **Sí** | Password de la DB del cliente | - |
+| `CLIENT_DB_NAME` | **Sí** | Nombre de la DB del cliente | - |
 
 ---
 
@@ -116,6 +138,9 @@ docker logs -f cloverbi-backend
 # Health check
 curl http://localhost:3002/health
 
+# Ver env vars activas (passwords enmascaradas)
+curl http://localhost:3002/api/env
+
 # Test query
 curl -X POST http://localhost:3002/api/query \
   -H "Content-Type: application/json" \
@@ -127,7 +152,7 @@ docker network inspect cloverbi-net
 
 ---
 
-## Ejemplo Completo (Digital Flow)
+## Ejemplo Completo (Digital Flow - Aldyl)
 
 ```bash
 # 1. Crear red (si no existe)
@@ -142,6 +167,17 @@ docker run -d \
   -e PORT=3002 \
   -e CLOVER_URL=wss://clover.neosolutions.com.ar/ \
   -e CLOVER_TOKEN=b7de372ef0d3a2edd5b5411ad5e4561c516090456ec50950 \
+  -e DB_SERVER=154.12.252.27 \
+  -e DB_PORT=2433 \
+  -e DB_USER=sa \
+  -e DB_PASSWORD=cloverfield161185 \
+  -e DB_NAME=CloverBI \
+  -e CLIENT_DB_TYPE=postgresql \
+  -e CLIENT_DB_HOST=db.dataoil.app \
+  -e CLIENT_DB_PORT=55005 \
+  -e CLIENT_DB_USER=sa \
+  -e CLIENT_DB_PASS=SeaLab2021 \
+  -e CLIENT_DB_NAME=db_aldyl \
   cloverbi/backend:latest
 ```
 
@@ -179,8 +215,10 @@ docker build -t cloverbi/backend:latest .
 | Timeout en queries | Ivy ocupada o caída | Verificar logs de Ivy |
 | Connection refused | Container no corre | `docker ps` y restart |
 | Frontend no conecta | Red incorrecta | Verificar ambos en `cloverbi-net` |
+| Error DB cliente | Env vars incompletas | `curl localhost:3002/api/env` para diagnosticar |
+| Execute endpoint falla | CLIENT_DB_* mal configuradas | Verificar tipo, host, puerto, user, pass, name |
 
 ---
 
-*Actualizado: 2026-02-14*  
+*Actualizado: 2026-03-04*  
 *CloverBI - Digital Flow*
