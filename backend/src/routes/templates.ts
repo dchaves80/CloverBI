@@ -490,9 +490,32 @@ export async function templatesRoutes(fastify: FastifyInstance) {
       const parsed = template.template_html ? parseCloverMetadata(template.template_html) : { components: [], queries: {}, componentCount: 0 }
       const componentTypeMap: Record<string, string> = {}
       for (const c of parsed.components) {
-        // Para charts: usar chart-type del CLOVER:BEGIN si está disponible (nuevo formato)
-        if (c.type === 'chart' && c.chartType) {
-          componentTypeMap[c.id] = `chart:${c.chartType}`
+        if (c.type === 'chart') {
+          if (c.chartType) {
+            // Nuevo formato: chart-type explícito en CLOVER:BEGIN
+            componentTypeMap[c.id] = `chart:${c.chartType}`
+          } else if (template.template_html) {
+            // Fallback para templates viejos: inferir tipo buscando el canvas ID
+            // dentro del bloque CLOVER y luego el new Chart(getElementById(...)) en el HTML
+            const blockStart = template.template_html.indexOf(`<!--CLOVER:BEGIN type="chart" id="${c.id}"`)
+            if (blockStart !== -1) {
+              const endIdx = template.template_html.indexOf('<!--CLOVER:END-->', blockStart)
+              const block = template.template_html.slice(blockStart, endIdx !== -1 ? endIdx + 20 : blockStart + 2000)
+              const canvasMatch = block.match(/<canvas[^>]+id="([^"]+)"/)
+              if (canvasMatch) {
+                const canvasId = canvasMatch[1]
+                const chartCallRegex = new RegExp(`getElementById\\(['"]${canvasId}['"]\\)\\s*,\\s*\\{\\s*type:\\s*['"]([a-z]+)['"]`)
+                const chartTypeMatch = template.template_html.match(chartCallRegex)
+                componentTypeMap[c.id] = chartTypeMatch ? `chart:${chartTypeMatch[1]}` : 'chart'
+              } else {
+                componentTypeMap[c.id] = 'chart'
+              }
+            } else {
+              componentTypeMap[c.id] = 'chart'
+            }
+          } else {
+            componentTypeMap[c.id] = 'chart'
+          }
         } else {
           componentTypeMap[c.id] = c.type
         }
