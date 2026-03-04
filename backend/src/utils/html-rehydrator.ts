@@ -10,14 +10,35 @@ import type { CloverComponent } from './clover-parser.js'
 
 // ─── helpers ──────────────────────────────────────────────────────
 
+function formatDate(val: Date | string): string {
+  try {
+    const d = val instanceof Date ? val : new Date(val)
+    if (isNaN(d.getTime())) return String(val)
+    const day   = d.getDate().toString().padStart(2, '0')
+    const month = (d.getMonth() + 1).toString().padStart(2, '0')
+    const year  = d.getFullYear()
+    return `${day}/${month}/${year}`
+  } catch {
+    return String(val)
+  }
+}
+
 function formatValue(val: any): string {
   if (val === null || val === undefined) return '—'
+  if (val instanceof Date) return formatDate(val)
   if (typeof val === 'number') {
     if (Number.isInteger(val)) return val.toLocaleString('es-AR')
     return val.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   }
-  if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}/.test(val)) {
-    try { return new Date(val).toLocaleDateString('es-AR') } catch { return String(val) }
+  if (typeof val === 'string') {
+    // Fecha ISO
+    if (/^\d{4}-\d{2}-\d{2}/.test(val)) return formatDate(val)
+    // String numérico → formatear como número
+    const n = parseFloat(val)
+    if (!isNaN(n) && String(n) === val.trim()) {
+      if (Number.isInteger(n)) return n.toLocaleString('es-AR')
+      return n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    }
   }
   return String(val)
 }
