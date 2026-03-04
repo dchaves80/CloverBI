@@ -90,56 +90,68 @@ function renderTable(id: string, rows: any[]): string {
 }
 
 function renderChart(id: string, rows: any[], chartType: string = "bar"): string {
-  // Si tiene pocos campos (≤ 2 cols), renderizamos un bar chart con Chart.js
   if (rows.length === 0) {
     return `<div class="section"><h3 class="section-title">${formatLabel(id)}</h3><div class="empty">Sin datos</div></div>`
   }
 
   const cols = Object.keys(rows[0])
-  if (cols.length >= 2) {
-    const labelKey = cols[0]
-    const valueKey = cols[1]
-    const labels = rows.map(r => formatValue(r[labelKey]))
-    const values = rows.map(r => r[valueKey])
-    const canvasId = `chart_${id}`
-    const labelsJson = JSON.stringify(labels)
-    const valuesJson = JSON.stringify(values)
+  if (cols.length < 2) return renderTable(id, rows)
 
-    return `
+  const labelKey = cols[0]
+  const valueKey = cols[1]
+  const labels = rows.map(r => formatValue(r[labelKey]))
+  const values = rows.map(r => r[valueKey])
+  const canvasId = `chart_${id}`
+  const labelsJson = JSON.stringify(labels)
+  const valuesJson = JSON.stringify(values)
+
+  // Tipos sin ejes (doughnut, pie) — sin scales
+  const isRadial = chartType === 'doughnut' || chartType === 'pie'
+  // Horizontal bar
+  const isHorizontal = chartType === 'bar-horizontal'
+  const realType = isHorizontal ? 'bar' : chartType
+
+  const scalesConfig = isRadial ? '' : `
+              scales: {
+                ${isHorizontal ? 'y' : 'x'}: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
+                ${isHorizontal ? 'x' : 'y'}: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }
+              }`
+
+  const indexAxisConfig = isHorizontal ? `\n              indexAxis: 'y',` : ''
+
+  return `
     <div class="section">
       <h3 class="section-title">${formatLabel(id)}</h3>
-      <canvas id="${canvasId}" height="80"></canvas>
+      <canvas id="${canvasId}" height="${isRadial ? '120' : '80'}"></canvas>
       <script>
         (function() {
           var ctx = document.getElementById('${canvasId}');
           new Chart(ctx, {
-            type: '${chartType}',
+            type: '${realType}',
             data: {
               labels: ${labelsJson},
               datasets: [{
                 label: '${escapeHtml(formatLabel(valueKey))}',
                 data: ${valuesJson},
-                backgroundColor: 'rgba(52, 211, 153, 0.6)',
-                borderColor: 'rgb(52, 211, 153)',
+                backgroundColor: ${isRadial
+                  ? "['rgba(52,211,153,0.7)','rgba(59,130,246,0.7)','rgba(245,158,11,0.7)','rgba(239,68,68,0.7)','rgba(139,92,246,0.7)']"
+                  : "'rgba(52, 211, 153, 0.6)'"
+                },
+                borderColor: ${isRadial
+                  ? "['rgb(52,211,153)','rgb(59,130,246)','rgb(245,158,11)','rgb(239,68,68)','rgb(139,92,246)']"
+                  : "'rgb(52, 211, 153)'"
+                },
                 borderWidth: 1
               }]
             },
             options: {
-              responsive: true,
-              plugins: { legend: { labels: { color: '#e2e8f0' } } },
-              scales: {
-                x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
-                y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }
-              }
+              responsive: true,${indexAxisConfig}
+              plugins: { legend: { labels: { color: '#e2e8f0' }, display: ${isRadial ? 'true' : 'false'} } },${scalesConfig}
             }
           });
         })();
       </script>
     </div>`
-  }
-
-  // fallback: tabla
-  return renderTable(id, rows)
 }
 
 function renderError(id: string, error: string): string {

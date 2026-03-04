@@ -490,18 +490,11 @@ export async function templatesRoutes(fastify: FastifyInstance) {
       const parsed = template.template_html ? parseCloverMetadata(template.template_html) : { components: [], queries: {}, componentCount: 0 }
       const componentTypeMap: Record<string, string> = {}
       for (const c of parsed.components) {
-        componentTypeMap[c.id] = c.type
-        // Para charts: extraer subtipo (line, bar, pie, doughnut, etc.) del HTML guardado
-        if (c.type === 'chart' && template.template_html) {
-          const blockStart = template.template_html.indexOf(`<!--CLOVER:BEGIN type="chart" id="${c.id}"-->`)
-          if (blockStart !== -1) {
-            const endIdx = template.template_html.indexOf('<!--CLOVER:END-->', blockStart)
-            const block = template.template_html.slice(blockStart, endIdx !== -1 ? endIdx + 20 : blockStart + 3000)
-            const chartTypeMatch = block.match(/new Chart\(\s*\w+\s*,\s*\{\s*type:\s*['"]([a-z]+)['"]/)
-            if (chartTypeMatch && chartTypeMatch[1] !== 'chart') {
-              componentTypeMap[c.id] = `chart:${chartTypeMatch[1]}`
-            }
-          }
+        // Para charts: usar chart-type del CLOVER:BEGIN si está disponible (nuevo formato)
+        if (c.type === 'chart' && c.chartType) {
+          componentTypeMap[c.id] = `chart:${c.chartType}`
+        } else {
+          componentTypeMap[c.id] = c.type
         }
       }
 
@@ -613,7 +606,7 @@ export async function templatesRoutes(fastify: FastifyInstance) {
       const bindingSchema = JSON.stringify({
         version: '2.0',
         params: Object.keys(params).length > 0 ? params : undefined,
-        components: parsed.components.map(c => ({ id: c.id, type: c.type }))
+        components: parsed.components.map(c => ({ id: c.id, type: c.type, ...(c.chartType ? { chartType: c.chartType } : {}) }))
       })
       const tagsStr = tags ? tags.join(',') : null
 

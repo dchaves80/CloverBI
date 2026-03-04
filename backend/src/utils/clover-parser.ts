@@ -6,6 +6,7 @@
 export interface CloverComponent {
   id: string
   type: 'chart' | 'kpi' | 'table' | 'text'
+  chartType?: string   // para charts: 'bar', 'line', 'doughnut', 'pie', 'bar-horizontal', etc.
   sql: string
 }
 
@@ -29,12 +30,12 @@ export function parseCloverMetadata(html: string): ParseResult {
   const queries: Record<string, string> = {}
 
   // Regex para encontrar bloques CLOVER
-  // Captura: type, id, y el SQL
-  const blockRegex = /<!--CLOVER:BEGIN\s+type="(\w+)"\s+id="([^"]+)"-->\s*<!--CLOVER:SQL\s+([\s\S]*?)-->/g
+  // Captura: type, id, chart-type (opcional), y el SQL
+  const blockRegex = /<!--CLOVER:BEGIN\s+type="(\w+)"\s+id="([^"]+)"(?:\s+chart-type="([^"]+)")?[^>]*-->\s*<!--CLOVER:SQL\s+([\s\S]*?)-->/g
 
   let match
   while ((match = blockRegex.exec(html)) !== null) {
-    const [_, type, id, sql] = match
+    const [_, type, id, chartType, sql] = match
     
     // Limpiar el SQL (puede tener saltos de línea)
     const cleanSql = sql.trim().replace(/\s+/g, ' ')
@@ -42,6 +43,7 @@ export function parseCloverMetadata(html: string): ParseResult {
     const component: CloverComponent = {
       id,
       type: type as CloverComponent['type'],
+      ...(chartType ? { chartType } : {}),
       sql: cleanSql
     }
     

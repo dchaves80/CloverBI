@@ -149,7 +149,7 @@ Esto permite guardar dashboards como templates reutilizables.
 
 **Chart (gráficos):**
 ```html
-<!--CLOVER:BEGIN type="chart" id="ventasPorMes"-->
+<!--CLOVER:BEGIN type="chart" id="ventasPorMes" chart-type="bar"-->
 <!--CLOVER:SQL SELECT mes, SUM(total) as total FROM ventas GROUP BY mes ORDER BY mes-->
 <div class="chart-container">
   <canvas id="chart_ventasPorMes"></canvas>
@@ -163,6 +163,11 @@ Esto permite guardar dashboards como templates reutilizables.
 </script>
 <!--CLOVER:END-->
 ```
+
+> ⚠️ **REGLA OBLIGATORIA para charts:** El atributo `chart-type` en `CLOVER:BEGIN` debe coincidir EXACTAMENTE con el `type:` que usás en el `new Chart(...)`.
+> Valores válidos: `bar`, `line`, `doughnut`, `pie`, `radar`, `polarArea`
+> Ejemplo: si usás `type: 'doughnut'` en Chart.js → `chart-type="doughnut"` en el comentario.
+> Si usás horizontal bar (`indexAxis: 'y'`) → `chart-type="bar-horizontal"`
 
 **KPI (número individual):**
 ```html
@@ -242,7 +247,7 @@ SELECT nombre, SUM(produccion) FROM pozos GROUP BY nombre ORDER BY SUM(produccio
 <body>
   <h1>Top 10 Pozos</h1>
 
-  <!--CLOVER:BEGIN type="chart" id="topPozos"-->
+  <!--CLOVER:BEGIN type="chart" id="topPozos" chart-type="bar"-->
   <!--CLOVER:SQL SELECT nombre, SUM(produccion) as total FROM pozos GROUP BY nombre ORDER BY total DESC LIMIT 10-->
   <div class="chart-container">...</div>
   <!--CLOVER:END-->
@@ -272,7 +277,7 @@ SELECT nombre, SUM(produccion) FROM pozos GROUP BY nombre ORDER BY SUM(produccio
   <div class="kpi-card">...</div>
   <!--CLOVER:END-->
 
-  <!--CLOVER:BEGIN type="chart" id="produccionDiaria"-->
+  <!--CLOVER:BEGIN type="chart" id="produccionDiaria" chart-type="line"-->
   <!--CLOVER:SQL SELECT DATE(date_created) as fecha, SUM(net_fiscalized_number) as total FROM own_fiscalized_production WHERE date_created BETWEEN '{{fecha_inicio}}' AND '{{fecha_fin}}' GROUP BY DATE(date_created) ORDER BY fecha-->
   <div class="chart-container">...</div>
   <!--CLOVER:END-->
