@@ -182,6 +182,21 @@ Esto permite guardar dashboards como templates reutilizables.
 
 > ⚠️ **REGLA DE ORO para CLOVER:SQL:** Si la query filtra por fecha, SIEMPRE usar `{{fecha_inicio}}` y `{{fecha_fin}}`. **NUNCA** escribir una fecha literal como `'2026-01-01'` o `'2026-02-27'`.
 
+> ⚠️ **REGLA ANTI division by zero:** Cuando calcules porcentajes, eficiencias o cualquier división en SQL, **SIEMPRE** proteger con `NULLIF` o `CASE WHEN` para evitar el error `division by zero`. Ejemplos:
+> ```sql
+> -- ✅ CORRECTO con NULLIF (PostgreSQL/MySQL)
+> ROUND(SUM(neto)::numeric / NULLIF(SUM(bruto), 0) * 100, 2) as eficiencia
+>
+> -- ✅ CORRECTO con CASE WHEN (todos los motores)
+> CASE WHEN SUM(bruto) = 0 THEN NULL
+>      ELSE ROUND(SUM(neto)::numeric / SUM(bruto)::numeric * 100, 2)
+> END as eficiencia
+>
+> -- ❌ MAL - puede explotar si bruto = 0
+> ROUND(SUM(neto)::numeric / SUM(bruto)::numeric * 100, 2) as eficiencia
+> ```
+> Esto aplica a: eficiencias, ratios, promedios ponderados, variaciones %, cualquier división.
+
 **Table (tablas de datos):**
 ```html
 <!--CLOVER:BEGIN type="table" id="topClientes"-->
