@@ -273,15 +273,38 @@ const start = async () => {
     }
     
     await fastify.listen({ port, host: '0.0.0.0' })
+
+    const ok  = (v?: string) => v ? `✅ ${v}` : '❌ no configurada'
+    const mask = (v?: string) => v ? `✅ ${'*'.repeat(Math.min(v.length, 8))}` : '❌ no configurada'
+    const clientOk = process.env.CLIENT_DB_HOST && process.env.CLIENT_DB_USER && process.env.CLIENT_DB_NAME
+
     console.log(``)
     console.log(`🍀 ═══════════════════════════════════════════════`)
     console.log(`🍀 Clover BI Backend`)
     console.log(`🍀 Started: ${startTimestamp}`)
     console.log(`🍀 ═══════════════════════════════════════════════`)
     console.log(`📡 Server:     http://localhost:${port}`)
-    console.log(`📚 Swagger UI: http://localhost:${port}/docs`)
-    console.log(`🌿 Ivy:        ${process.env.CLOVER_URL || 'wss://clover.neosolutions.com.ar/'}`)
-    console.log(`📋 Templates:  /api/templates`)
+    console.log(`📚 Swagger:    http://localhost:${port}/docs`)
+    console.log(`📋 Env:        http://localhost:${port}/api/env`)
+    console.log(``)
+    console.log(`🗄️  CloverBI DB (interna):`)
+    console.log(`   DB_SERVER:   ${ok(process.env.DB_SERVER)}`)
+    console.log(`   DB_PORT:     ${ok(process.env.DB_PORT)}`)
+    console.log(`   DB_USER:     ${ok(process.env.DB_USER)}`)
+    console.log(`   DB_PASSWORD: ${mask(process.env.DB_PASSWORD)}`)
+    console.log(`   DB_NAME:     ${ok(process.env.DB_NAME)}`)
+    console.log(``)
+    console.log(`🔌 Client DB (datos de dashboards):`)
+    console.log(`   CLIENT_DB_TYPE: ${ok(process.env.CLIENT_DB_TYPE)}`)
+    console.log(`   CLIENT_DB_HOST: ${ok(process.env.CLIENT_DB_HOST)}`)
+    console.log(`   CLIENT_DB_PORT: ${ok(process.env.CLIENT_DB_PORT)}`)
+    console.log(`   CLIENT_DB_USER: ${ok(process.env.CLIENT_DB_USER)}`)
+    console.log(`   CLIENT_DB_PASS: ${mask(process.env.CLIENT_DB_PASS)}`)
+    console.log(`   CLIENT_DB_NAME: ${ok(process.env.CLIENT_DB_NAME)}`)
+    console.log(`   Status: ${clientOk ? '✅ configurada' : '❌ incompleta — execute endpoint no funcionará'}`)
+    console.log(``)
+    console.log(`🌿 Ivy:        ${ok(process.env.CLOVER_URL)}`)
+    console.log(`   Token:     ${mask(process.env.CLOVER_TOKEN)}`)
     console.log(``)
   } catch (err) {
     fastify.log.error(err)
