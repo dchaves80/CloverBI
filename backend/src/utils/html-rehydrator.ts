@@ -101,6 +101,13 @@ function rehydrateKpi(html: string, id: string, rows: any[]): string {
 
 // ─── Table ────────────────────────────────────────────────────────
 
+function formatLabel(key: string): string {
+  return key
+    .replace(/_/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/\b\w/g, c => c.toUpperCase())
+}
+
 function rehydrateTable(html: string, id: string, rows: any[]): string {
   const bounds = findBlockBounds(html, 'table', id)
   if (!bounds) return html
@@ -117,10 +124,17 @@ function rehydrateTable(html: string, id: string, rows: any[]): string {
   }
 
   const cols = Object.keys(rows[0])
+
+  // Reemplazar thead con columnas reales (evita mismatch con columnas calculadas por Ivy)
+  const newThead = `<thead><tr>${cols.map(c =>
+    `<th>${escapeHtml(formatLabel(c))}</th>`
+  ).join('')}</tr></thead>`
+
   const newTbody = `<tbody>${rows.map(row =>
     `<tr>${cols.map(c => `<td>${escapeHtml(formatValue(row[c]))}</td>`).join('')}</tr>`
   ).join('')}</tbody>`
 
+  block = block.replace(/<thead>[\s\S]*?<\/thead>/, newThead)
   block = block.replace(/<tbody>[\s\S]*?<\/tbody>/, newTbody)
   return html.slice(0, blockStart) + block + html.slice(blockEnd)
 }
