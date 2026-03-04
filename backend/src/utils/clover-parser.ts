@@ -121,7 +121,7 @@ export function parseCloverParams(html: string): CloverParams {
   if (!blockMatch) return params
 
   const block = blockMatch[1]
-  const lineRegex = /<!--([^:]+):(\w+):([^:]+):([^-]*)-->/g
+  const lineRegex = /<!--([^:]+):(\w+):([^:]+):(.*?)-->/g
 
   let match
   while ((match = lineRegex.exec(block)) !== null) {
