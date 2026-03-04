@@ -113,7 +113,7 @@ function renderChart(id: string, rows: any[], chartType: string = "bar"): string
         (function() {
           var ctx = document.getElementById('${canvasId}');
           new Chart(ctx, {
-            type: chartType,
+            type: '${chartType}',
             data: {
               labels: ${labelsJson},
               datasets: [{
