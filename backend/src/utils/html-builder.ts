@@ -89,7 +89,7 @@ function renderTable(id: string, rows: any[]): string {
     </div>`
 }
 
-function renderChart(id: string, rows: any[]): string {
+function renderChart(id: string, rows: any[], chartType: string = "bar"): string {
   // Si tiene pocos campos (≤ 2 cols), renderizamos un bar chart con Chart.js
   if (rows.length === 0) {
     return `<div class="section"><h3 class="section-title">${formatLabel(id)}</h3><div class="empty">Sin datos</div></div>`
@@ -113,7 +113,7 @@ function renderChart(id: string, rows: any[]): string {
         (function() {
           var ctx = document.getElementById('${canvasId}');
           new Chart(ctx, {
-            type: 'bar',
+            type: chartType,
             data: {
               labels: ${labelsJson},
               datasets: [{
@@ -167,7 +167,10 @@ export function buildFreshHtml(opts: BuildHtmlOptions): string {
     if (errors[id]) return renderError(id, errors[id])
     const type = componentTypeMap[id] || 'table'
     const rows = results[id] || []
-    if (type === 'chart') return renderChart(id, rows)
+    if (type === 'chart' || type.startsWith('chart:')) {
+      const subtype = type.includes(':') ? type.split(':')[1] : 'bar'
+      return renderChart(id, rows, subtype)
+    }
     if (type === 'kpi') return renderKpi(id, rows)   // fallback (error path)
     return renderTable(id, rows)
   }).join('')

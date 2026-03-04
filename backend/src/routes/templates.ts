@@ -491,6 +491,18 @@ export async function templatesRoutes(fastify: FastifyInstance) {
       const componentTypeMap: Record<string, string> = {}
       for (const c of parsed.components) {
         componentTypeMap[c.id] = c.type
+        // Para charts: extraer subtipo (line, bar, pie, doughnut, etc.) del HTML guardado
+        if (c.type === 'chart' && template.template_html) {
+          const blockStart = template.template_html.indexOf(`<!--CLOVER:BEGIN type="chart" id="${c.id}"-->`)
+          if (blockStart !== -1) {
+            const endIdx = template.template_html.indexOf('<!--CLOVER:END-->', blockStart)
+            const block = template.template_html.slice(blockStart, endIdx !== -1 ? endIdx + 20 : blockStart + 3000)
+            const chartTypeMatch = block.match(/type:\s*['"]([a-z]+)['"]/)
+            if (chartTypeMatch && chartTypeMatch[1] !== 'chart') {
+              componentTypeMap[c.id] = `chart:${chartTypeMatch[1]}`
+            }
+          }
+        }
       }
 
       // 5. Generar HTML fresco con los resultados
