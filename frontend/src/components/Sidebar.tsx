@@ -117,9 +117,10 @@ export default function Sidebar({ user, roles, onLogout, darkMode, onToggleDarkM
 
       {/* Bottom Section */}
       <div className="border-t border-bg-card p-2 space-y-1">
-        {/* Dark Mode Toggle */}
+        {/* Dark Mode Toggle — temporalmente oculto, mantener para re-habilitar */}
         <button
           onClick={onToggleDarkMode}
+          hidden
           className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-text-secondary hover:bg-bg-card hover:text-text-primary w-full ${
             collapsed ? 'justify-center' : ''
           }`}
