@@ -204,15 +204,34 @@ function rehydrateChart(html: string, id: string, rows: any[], chartType: string
       const n = parseFloat(String(v))
       return isNaN(n) ? v : n
     })
+
+    // Bar: una barra = un color (array por punto de datos)
+    const isBar = realType === 'bar'
+    const bgColor = isRadial
+      ? CHART_COLORS.map(c => c + 'b3')
+      : isBar
+        ? data.map((_, j) => CHART_COLORS[j % CHART_COLORS.length] + 'cc')
+        : color + '99'
+    const bdColor = isRadial
+      ? CHART_COLORS
+      : isBar
+        ? data.map((_, j) => CHART_COLORS[j % CHART_COLORS.length])
+        : color
+
+    // Line: primer dataset con fill, resto dashed sin fill
+    const lineExtras = realType === 'line'
+      ? i === 0
+        ? { tension: 0.3, fill: true, borderWidth: 2, pointRadius: 3 }
+        : { tension: 0.3, fill: false, borderWidth: 2, borderDash: [5, 5], pointRadius: 2 }
+      : {}
+
     return {
-      label: key,
+      label: formatLabel(key),
       data,
-      backgroundColor: isRadial
-        ? CHART_COLORS.map(c => c + 'b3')
-        : color + '99',
-      borderColor: isRadial ? CHART_COLORS : color,
+      backgroundColor: bgColor,
+      borderColor: bdColor,
       borderWidth: 2,
-      ...(realType === 'line' ? { tension: 0.3, fill: true } : {}),
+      ...lineExtras,
     }
   })
 
